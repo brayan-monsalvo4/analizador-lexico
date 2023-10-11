@@ -1,8 +1,7 @@
 import string
 
 class table_reader:
-    def __init__(self, ruta : str):
-        self.path : str = ruta
+    def __init__(self):
         self.alfabeto : set[str]
         self.estados : list[str]
         self.estado_inicial : str
@@ -13,29 +12,41 @@ class table_reader:
         self.tokens : dict[str : str] = dict()
         self.retrocesos : dict[str : int] = dict()
 
-        self.__leer_datos()
-
-    def __leer_datos(self):
-        with open(self.path, "r") as file:
+    def leer_datos(self, path : str):
+        with open(path, "r") as file:
             """lee el estado inicial y el simbolo de valor nulo"""
             self.estado_inicial = file.readline().strip(string.whitespace)     
             self.simbolo = file.readline().strip(string.whitespace)
 
             tabla : list[ list[str] ] = list()      
-
-            
             for linea in file.readlines():
                 """limpia los caracteres del archivo quitando espacios en blanco y saltos de linea a los costados, pero no los quita por
                 completo"""
                 linea = linea.strip(string.whitespace)
 
-                """filtra los elementos anteriores, guardando en la tabla quitando unicamente los '' que resultan al usar .spli(" ") """
+                """filtra los elementos anteriores, guardando unicamente los elementos que no son una cadena vacia '', resultado de 
+                linea.split(' ')"""
                 tabla.append( list(filter( lambda celda: celda != "" , linea.split(" "))) )
 
             self.tabla = tabla
             
             """lee la primera fila de la tabla, e ignora la primer y ultimas dos casillas (retr y token), resultando en el alfabeto"""
             self.alfabeto = [ letra for letra in self.tabla[0][1:-2 ]]
+
+            """si encuentra los conjutos de los numeros, letras, letras en minusculas o mayusculas (digits, letters, ...)reemplaza
+            el nombre del conjunto por todos sus elementos"""
+            self.alfabeto.extend(list(string.digits)) if "digits" in self.alfabeto else  None
+            self.alfabeto.extend(list(string.ascii_letters)) if "letters" in self.alfabeto else None
+            self.alfabeto.extend(list(string.ascii_lowercase)) if "letters_lowercase" in self.alfabeto else None
+            self.alfabeto.extend(list(string.ascii_uppercase)) if "letters_uppercase" in self.alfabeto else None
+            self.alfabeto.extend(list(string.whitespace)) if "otros" in self.alfabeto else None
+
+
+            self.alfabeto.remove("digits") if "digits" in self.alfabeto else None
+            self.alfabeto.remove("letters") if "letters" in self.alfabeto else None
+            self.alfabeto.remove("letters_lowercase") if "letters_lowercase" in self.alfabeto else None
+            self.alfabeto.remove("letters_uppercase") if "letters_uppercase" in self.alfabeto else None
+            self.alfabeto.remove("otros") if "otros" in self.alfabeto else None
 
             """lee la primer columna a partir de la segunda fila (la primera fila contiene el alfabeto)"""
             self.estados = [letra[0] for letra in self.tabla[1:] ]
@@ -53,6 +64,12 @@ class table_reader:
                 #columnas
                 for j in range(1, len(self.tabla[i])-2):
                     simbolo_actual : str = self.tabla[0][j]
+
+                    simbolo_actual = string.ascii_letters if simbolo_actual == "letters" else simbolo_actual
+                    simbolo_actual = string.ascii_lowercase if simbolo_actual == "letters_lowercase" else simbolo_actual
+                    simbolo_actual = string.ascii_uppercase if simbolo_actual == "letters_uppercase" else simbolo_actual
+                    simbolo_actual = string.digits if simbolo_actual == "digits" else simbolo_actual
+                    simbolo_actual = string.whitespace if simbolo_actual == "otros" else simbolo_actual
 
                     estado_siguiente : str = self.tabla[i][j]
 
