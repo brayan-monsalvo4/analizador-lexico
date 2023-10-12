@@ -91,6 +91,9 @@ class Dfa:
                 self.__posicion = file.tell()   
 
                 if buffer == "" and char in string.whitespace:
+                    if char == "\n":
+                        self.__columna = 0
+                        self.__fila += 1
                     continue
 
                 buffer += char
