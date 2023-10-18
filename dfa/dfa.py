@@ -9,6 +9,8 @@ class Dfa:
 
     def __init__(self):
         pass
+        self.__palabras_reservadas : list[str] = ["begin", "end", "do", "if", "for", "cmp", "and", "je", "jmp", "mov"]
+
 
     def get_posicion_actual(self) -> tuple[int, int]:
         return (self.__fila, self.__columna)
@@ -114,12 +116,20 @@ class Dfa:
                     if self.retrocesos.get(estado) >= 1:
                         buffer = buffer[: -self.retrocesos.get(estado)]
                     
+                    self.__posicion -= self.retrocesos.get(estado)
+                    self.__columna -= self.retrocesos.get(estado)
+
+                    if buffer in self.__palabras_reservadas:
+                        tokencito = token.Token(
+                            type="PAL_RES",
+                            lexem=buffer,
+                            coordinates=(temp[0], temp[1]-1)
+                        )
+                        return tokencito
+
                     tokencito = token.Token(type=self.tokens.get(estado),
                                             coordinates=(temp[0], temp[1]-1),
                                             lexem=buffer)
-                    
-                    self.__posicion -= self.retrocesos.get(estado)
-                    self.__columna -= self.retrocesos.get(estado)
 
                     return tokencito    
                 
