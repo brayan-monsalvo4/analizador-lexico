@@ -8,9 +8,14 @@ import string
 class Dfa:
 
     def __init__(self):
+        #self.__palabras_reservadas : list[str] = ["begin", "end", "do", "if", "for", "cmp", "and", "je", "jmp", "mov"]
+        self.__palabras_reservadas : dict[str, str] = dict()
+        self.__palabras_reservadas.update({"begin":"PAL_RES", "end":"PAL_RES", "do":"PAL_RES", "if":"PAL_RES", "for":"PAL_RES", "cmp":"PAL_RES",
+                                           "je":"PAL_RES", "jmp":"PAL_RES", "mov":"PAL_RES", ".eq.":"IGUAL", ".l.":"MENOR",
+                                           ".g.":"MAYOR", ".le.":"MENOR_IGUAL", ".ge.":"MAYOR_IGUAL"})
+        self.__mod : bool = False
+        self.reiniciar()
         pass
-        self.__palabras_reservadas : list[str] = ["begin", "end", "do", "if", "for", "cmp", "and", "je", "jmp", "mov"]
-
 
     def get_posicion_actual(self) -> tuple[int, int]:
         return (self.__fila, self.__columna)
@@ -24,17 +29,28 @@ class Dfa:
 
         """{ q1 : {1 : q2, 2 : q2} }"""
 
-        siguiente_estado : str = self.transiciones.get(estado_actual).get(simbolo) if not re.fullmatch(r"[0-9A-Za-z]", simbolo) else ""
+        siguiente_estado : str = self.transiciones.get(estado_actual, "").get(simbolo, "") #if not re.fullmatch(r"[0-9A-Za-z]", simbolo) else ""
 
-        if re.fullmatch(r'[0-9A-Za-z]', simbolo):
-            for key in self.transiciones.get(estado_actual):
-                if simbolo in key:
-                    siguiente_estado = self.transiciones.get(estado_actual).get(key)
+        #if re.fullmatch(r'[0-9A-Za-z]', simbolo):
+        #    for key in self.transiciones.get(estado_actual):
+        #        if simbolo in key:
+        #            siguiente_estado = self.transiciones.get(estado_actual).get(key)
 
         if re.fullmatch(f"[{re.escape(string.whitespace)}]", simbolo):
             for key in self.transiciones.get(estado_actual):
                 if simbolo in key:
                     siguiente_estado = self.transiciones.get(estado_actual).get(key)
+
+        if siguiente_estado == "":
+            for key in self.transiciones.get(estado_actual).keys():
+                try:
+                    regex = re.compile(key)
+                    if regex.fullmatch(simbolo):
+                        siguiente_estado = self.transiciones.get(estado_actual).get(key)
+                        break
+                except re.error:
+                    siguiente_estado = ""
+                    break
 
         return siguiente_estado
 
@@ -70,17 +86,26 @@ class Dfa:
         self.tokens : dict[str, str] = tabla.tokens
         self.retrocesos : dict[str, int] = tabla.retrocesos
         
-        self.__fila : int = 0
+        self.__fila : int = 1
         self.__columna : int = 0
         self.__posicion : int = 0
     
     def reiniciar(self):
         self.__posicion = 0
-        self.__fila = 0
+        self.__fila = 1
         self.__columna = 0
 
     def cargar_archivo_fuente(self, path : str):
         self.__archivo_fuente : str = path
+        
+        with open(self.__archivo_fuente, "r") as file:
+            texto = file.read()
+        
+        if texto[-1] not in string.whitespace:
+            with open(self.__archivo_fuente, "a") as file:
+                file.write(" ")
+        
+        self.reiniciar()
 
     def get_token(self):
         buffer : str = ""
@@ -92,53 +117,55 @@ class Dfa:
                 self.__columna += 1
                 self.__posicion = file.tell()   
 
-                if buffer == "" and char in string.whitespace:
-                    if char == "\n":
-                        self.__columna = 0
-                        self.__fila += 1
-                    continue
+                """si el buffer esta vacio y encuentra un espacio en blanco, simplemente lo ignora"""
+                if len(buffer) == 0 and char == " ":
+                    continue    
 
-                buffer += char
-                    
+                """si el buffer esta vacio y encuentra un salto de linea, incrementa la fila en 1 y la columna 
+                 se reinicia a 0 """
+                if len(buffer) == 0 and char == "\n":
+                    self.__fila += 1
+                    self.__columna = 0
+                    continue                    
+
+                buffer += char 
+
                 estado = self.siguiente_estado(estado_actual=estado, simbolo=char)
-
-                #print(f"char:{char}, buffer:{buffer}, estado:{estado}, posicion:{self.__posicion}, columna:{self.__columna}")
 
                 if not estado:
                     raise exceptions.EstadoSiguienteNoExiste
 
                 if estado in self.estados_finales:
-                    temp : list[int] = [self.__fila, self.__columna]
-                    if char == "\n":
-                        self.__columna = 0
-                        self.__fila += 1
 
                     if self.retrocesos.get(estado) >= 1:
                         buffer = buffer[: -self.retrocesos.get(estado)]
                     
-                    self.__posicion -= self.retrocesos.get(estado)
-                    self.__columna -= self.retrocesos.get(estado)
+                    self.__posicion -= self.retrocesos.get(estado, 0)
+                    self.__columna -= self.retrocesos.get(estado, 0)
 
-                    if buffer in self.__palabras_reservadas:
+                    if self.tokens.get(estado) == "PAL_RES":
+                        if buffer in self.__palabras_reservadas.keys():
+                            tokencito = token.Token(
+                                type= self.__palabras_reservadas.get(buffer),
+                                lexem=buffer,
+                                coordinates=(self.__fila, self.__columna)
+                            )
+                            return tokencito
+                        
+                        raise exceptions.TokenIncorrecto
+
+                    if buffer in self.__palabras_reservadas.keys():
                         tokencito = token.Token(
-                            type="PAL_RES",
+                            type= self.__palabras_reservadas.get(buffer),
                             lexem=buffer,
-                            coordinates=(temp[0], temp[1]-1)
+                            coordinates=(self.__fila, self.__columna)
                         )
                         return tokencito
 
                     tokencito = token.Token(type=self.tokens.get(estado),
-                                            coordinates=(temp[0], temp[1]-1),
+                                            coordinates=(self.__fila, self.__columna),
                                             lexem=buffer)
 
                     return tokencito    
-                
-                #if estado in self.estados_finales and char in string.whitespace:
-                #    temp : list[int] = [self.__fila, self.__columna]
-                #    if char == "\n":
-                #        self.__columna = 0
-                #        self.__fila += 1
-#
-                #    return token.Token(type=self.tokens.get(estado), coordinates=(temp[0], temp[1]-1), lexem=buffer[:- self.retrocesos.get(estado)])    
                 
         return ""
