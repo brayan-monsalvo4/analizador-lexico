@@ -1,5 +1,5 @@
 import string
-
+import re
 class table_reader:
     def __init__(self):
         self.alfabeto : set[str]
@@ -17,6 +17,10 @@ class table_reader:
             """lee el estado inicial y el simbolo de valor nulo"""
             self.estado_inicial = file.readline().strip(string.whitespace)     
             self.simbolo = file.readline().strip(string.whitespace)
+            
+            """lee el alfabeto ubicado en el tercer renglon"""
+            linea : str = file.readline().strip(string.whitespace)
+            self.alfabeto = [ letra for letra in linea.split(" ") ]
 
             tabla : list[ list[str] ] = list()      
             for linea in file.readlines():
@@ -30,8 +34,6 @@ class table_reader:
 
             self.tabla = tabla
             
-            """lee la primera fila de la tabla, e ignora la primer y ultimas dos casillas (retr y token), resultando en el alfabeto"""
-            self.alfabeto = [ letra for letra in self.tabla[0][1:-2 ]]
 
             """si encuentra los conjutos de los numeros, letras, letras en minusculas o mayusculas (digits, letters, ...)reemplaza
             el nombre del conjunto por todos sus elementos"""
@@ -40,7 +42,6 @@ class table_reader:
             self.alfabeto.extend(list(string.ascii_lowercase)) if "letters_lowercase" in self.alfabeto else None
             self.alfabeto.extend(list(string.ascii_uppercase)) if "letters_uppercase" in self.alfabeto else None
             self.alfabeto.extend(list(string.whitespace)) if "otros" in self.alfabeto else None
-
 
             self.alfabeto.remove("digits") if "digits" in self.alfabeto else None
             self.alfabeto.remove("letters") if "letters" in self.alfabeto else None
@@ -63,12 +64,10 @@ class table_reader:
                 
                 #columnas
                 for j in range(1, len(self.tabla[i])-2):
+                    """lee el simbolo de la columna j"""
                     simbolo_actual : str = self.tabla[0][j]
 
-                    simbolo_actual = string.ascii_letters if simbolo_actual == "letters" else simbolo_actual
-                    simbolo_actual = string.ascii_lowercase if simbolo_actual == "letters_lowercase" else simbolo_actual
-                    simbolo_actual = string.ascii_uppercase if simbolo_actual == "letters_uppercase" else simbolo_actual
-                    simbolo_actual = string.digits if simbolo_actual == "digits" else simbolo_actual
+                    """si la transicion es hacia otros, entonces reemplaza la transicion 'otros' por la cadena string.whitespace"""
                     simbolo_actual = string.whitespace if simbolo_actual == "otros" else simbolo_actual
 
                     estado_siguiente : str = self.tabla[i][j]
@@ -92,5 +91,3 @@ class table_reader:
                     """si ademas dicho estado tiene retroceso, o el retroceso es distinto al simbolo de valor nulo"""
                     if fila[-2] != self.simbolo:
                         self.retrocesos.update( { fila[0] : int(fila[-2]) } )
-                
-
