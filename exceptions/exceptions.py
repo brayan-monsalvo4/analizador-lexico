@@ -17,3 +17,8 @@ class EstadoSiguienteNoExiste(Exception):
     def __init__(self):
         self.message = "Simbolo no tiene estado siguiente. Token incorrecto"
         super().__init__(self.message)
+
+class TokenIncorrecto(Exception):
+    def __init__(self):
+        self.message = "Token incorrecto."
+        super().__init__(self.message)
