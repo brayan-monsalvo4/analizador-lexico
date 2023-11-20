@@ -1,1 +1,4 @@
-hola este es un archivo de ejemplo para la tarea de introduccion a los compiladores XD.
+int 
+palabras reservadas {STRUCTURE, INT, READ, POINTER, CHAR, CONST, END, WRITE, BEGIN, STRING, PROGRAM, THEN, VARS, ELSE, NULL, WHILE, IF, DO}
+
+----=-=-=ads=a-d554445454 54((((()))--{{{{}}}}
