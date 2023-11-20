@@ -1,3 +1,7 @@
+class EstadoNoExistente(Exception):
+    def __init__(self):
+        self.message = "El estado no pertenece al conjunto de estados del automata!"
+        super().__init__(self.message)
 class ArchivoVacio(Exception):
     def __init__(self):
         self.message = "el archivo esta vacio!"
