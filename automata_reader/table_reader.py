@@ -1,93 +1,73 @@
 import string
 import re
+import xmltodict
+import json
+
 class table_reader:
     def __init__(self):
-        self.alfabeto : set[str]
-        self.estados : list[str]
+        self.estados : set[str]
         self.estado_inicial : str
         self.estados_finales : set[str]
-        self.simbolo : str
         self.transiciones : dict[ str : dict[ str : str ] ] = dict()
-        self.tabla : list[ list[str] ]
         self.tokens : dict[str : str] = dict()
         self.retrocesos : dict[str : int] = dict()
+        self.palabras_reservadas : set[str]
 
-    def leer_datos(self, path : str):
-        with open(path, "r") as file:
-            """lee el estado inicial y el simbolo de valor nulo"""
-            self.estado_inicial = file.readline().strip(string.whitespace)     
-            self.simbolo = file.readline().strip(string.whitespace)
-            
-            """lee el alfabeto ubicado en el tercer renglon"""
-            linea : str = file.readline().strip(string.whitespace)
-            self.alfabeto = [ letra for letra in linea.split(" ") ]
+    def leer_datos(self, path_xml):
+        with open(path_xml, "rb") as file:
+            datos_xml = xmltodict.parse(file)
 
-            tabla : list[ list[str] ] = list()      
-            for linea in file.readlines():
-                """limpia los caracteres del archivo quitando espacios en blanco y saltos de linea a los costados, pero no los quita por
-                completo"""
-                linea = linea.strip(string.whitespace)
+        self.palabras_reservadas = set( datos_xml.get("structure").get("automaton").get("note").get("text").split("\n") )
+        
+        lista_estados : list[str] = list()
+        lista_estados_finales : list[str] = list()
+        estados_temporal : dict[str, str] = dict()
 
-                """filtra los elementos anteriores, guardando unicamente los elementos que no son una cadena vacia '', resultado de 
-                linea.split(' ')"""
-                tabla.append( list(filter( lambda celda: celda != "" , linea.split(" "))) )
+        for estado in datos_xml.get("structure").get("automaton").get("state"):
+            lista_estados.append(estado.get("@name"))
 
-            self.tabla = tabla
-            
+            estados_temporal.update({estado.get("@id") : estado.get("@name")})
 
-            """si encuentra los conjutos de los numeros, letras, letras en minusculas o mayusculas (digits, letters, ...)reemplaza
-            el nombre del conjunto por todos sus elementos"""
-            self.alfabeto.extend(list(string.digits)) if "digits" in self.alfabeto else  None
-            self.alfabeto.extend(list(string.ascii_letters)) if "letters" in self.alfabeto else None
-            self.alfabeto.extend(list(string.ascii_lowercase)) if "letters_lowercase" in self.alfabeto else None
-            self.alfabeto.extend(list(string.ascii_uppercase)) if "letters_uppercase" in self.alfabeto else None
-            self.alfabeto.extend(list(string.whitespace)) if "otros" in self.alfabeto else None
+            if "initial" in estado.keys():
+                self.estado_inicial = estado.get("@name")
+            if "final" in estado.keys():
+                lista_estados_finales.append(estado.get("@name"))
+                label = estado.get("label")
 
-            self.alfabeto.remove("digits") if "digits" in self.alfabeto else None
-            self.alfabeto.remove("letters") if "letters" in self.alfabeto else None
-            self.alfabeto.remove("letters_lowercase") if "letters_lowercase" in self.alfabeto else None
-            self.alfabeto.remove("letters_uppercase") if "letters_uppercase" in self.alfabeto else None
-            self.alfabeto.remove("otros") if "otros" in self.alfabeto else None
+                token, retroceso = label.split(",")
 
-            """lee la primer columna a partir de la segunda fila (la primera fila contiene el alfabeto)"""
-            self.estados = [letra[0] for letra in self.tabla[1:] ]
+                token = token.split(":")
+                retroceso = retroceso.split(":")
 
-            """lee la primer columna como antes, pero ahora guarda el estado si es que todas las transiciones de dicho 
-            estado son iguales al simbolo de valor nulo"""
-            self.estados_finales = [fila[0] for fila in self.tabla[1:] if len(fila[1:-2]) == fila[1:-2].count(self.simbolo)]
-            
-            """recorre toda la tabla, pero empezando a leer las transiciones desde [1][1] (ignorando columna de estados y fila del alfabeto)"""
-            #filas
-            for i in range(1, len(self.tabla)):
-                estado_actual : str = self.tabla[i][0]
-                transicion : dict[str, str] = dict()
-                
-                #columnas
-                for j in range(1, len(self.tabla[i])-2):
-                    """lee el simbolo de la columna j"""
-                    simbolo_actual : str = self.tabla[0][j]
+                token = token[1].strip()
+                retroceso = retroceso[1].strip()
 
-                    """si la transicion es hacia otros, entonces reemplaza la transicion 'otros' por la cadena string.whitespace"""
-                    simbolo_actual = string.whitespace if simbolo_actual == "otros" else simbolo_actual
+                self.tokens.update( { estado.get("@name") : token } )
+                self.retrocesos.update( { estado.get("@name") : int(retroceso) } )
+        
+        
+        if not isinstance(datos_xml.get("structure").get("automaton").get("transition"), list):
+            id_inicial : str = datos_xml.get("structure").get("automaton").get("transition").get("from")
+            id_siguiente :  str = datos_xml.get("structure").get("automaton").get("transition").get("to")
 
-                    estado_siguiente : str = self.tabla[i][j]
+            estado_inicial : str = estados_temporal.get(id_inicial)
+            estado_siguiente : str = estados_temporal.get(id_siguiente)
 
-                    """crea un diccionario con la transicion del estado actual y el simbolo actual
-                     si es que dicha transicion no es igual al simbolo de valor nulo"""
-                    transicion.update({ simbolo_actual : estado_siguiente }) if not estado_siguiente == self.simbolo  else transicion.update({})
-                
-                """se guarda la lista de transiciones del estado actual si es que dicha lista no es vacia"""
-                if bool(transicion):
-                    self.transiciones.update({ estado_actual : transicion }) 
+            simbolo : str = datos_xml.get("structure").get("automaton").get("transition").get("read")
 
-            """busca entre todas las filas a partir de la segunda"""
-            for fila in self.tabla[1:]:
+            self.transiciones.update( { estado_inicial : dict() } )
+            self.transiciones.get(estado_inicial).update( { simbolo : estado_siguiente } )
 
-                """si el estado en dicha fila es final"""
-                if fila[0] in self.estados_finales:
-                    """guarda el estado y el token si dicho token no es igual al simbolo de valor nulo"""
-                    self.tokens.update({ fila[0] : fila[-1] }) if fila[-1] != self.simbolo else self.tokens.update({})
+        else:
+            for transicion in datos_xml.get("structure").get("automaton").get("transition"):
+                estado_inicial : str = estados_temporal.get(transicion.get("from"))
+                estado_siguiente : str = estados_temporal.get(transicion.get("to"))
+                simbolo : str = transicion.get("read")
 
-                    """si ademas dicho estado tiene retroceso, o el retroceso es distinto al simbolo de valor nulo"""
-                    if fila[-2] != self.simbolo:
-                        self.retrocesos.update( { fila[0] : int(fila[-2]) } )
+                if not estado_inicial in self.transiciones.keys():
+                    self.transiciones.update( { estado_inicial : dict() } )
+
+                self.transiciones.get(estado_inicial).update( { simbolo : estado_siguiente } )
+
+        self.estados = set(lista_estados)
+        self.estados_finales = set(lista_estados_finales)
