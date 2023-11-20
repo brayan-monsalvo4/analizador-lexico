@@ -1,37 +1,33 @@
 from automata_reader import table_reader as tr
-from dfa import dfa
+from dfa import dfa, token
 import os
 import string
+import time
 
 def main():
+    start_time = time.time()
+
     tabla = tr.table_reader()
-    tabla.leer_datos(f"{os.getcwd()}/tablita.txt")
-    print(tabla.transiciones)
-    print()
-    #
-#
-    #automata = dfa.Dfa(estados=set(tabla.estados), alfabeto=tabla.alfabeto, estados_finales=set(tabla.estados_finales),
-    #                   estado_inicial=tabla.estado_inicial, transiciones=tabla.transiciones, tokens=tabla.tokens, retr=tabla.retrocesos)
-#
-#
-    ##print(automata.acepta_cadena("1245 4 5 "))
-    ##print(automata.transiciones)
-#
-    #while True:
-    #    token = automata.get_token(f"{os.getcwd()}/texto.txt")
-    #    if not token:
-    #        break
-    #    print(token)                
-
+    tabla.leer_datos(path_xml=f"{os.getcwd()}/automata_interprete_sin_notas.jff")
+    
     automata = dfa.Dfa()
+
     automata.cargar_datos(tabla=tabla)
+    automata.cargar_archivo_fuente(path=f"{os.getcwd()}/archivo.txt")
 
-    automata.cargar_archivo_fuente(path=f"{os.getcwd()}/texto.txt")
-    while True:
-        token = automata.get_token()
-        if not token:
-            break
-        print(token)
+    #with open("resultado", "w") as file:
+    while token := automata.get_token():
+        if token.type != "SEPARADOR":
+            print(token)
+    print(automata.get_token())
+    print(automata.get_token())
+    print(automata.get_token())
+    automata.reiniciar()
+    print(automata.get_token())
+    end_time = time.time()  
+    elapsed_time = end_time - start_time  # Calcular el tiempo transcurrido
 
+    print(f"Tiempo de ejecución: {elapsed_time} segundos")
+        
 if __name__ == "__main__":
     main()
