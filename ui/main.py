@@ -128,17 +128,17 @@ class PantallaPrincipal:
         path = ctk.filedialog.askopenfilename(
             title="Abrir archivo",
             initialdir=os.getcwd(),
-            filetypes=[('All files', '*.*')]
+            filetypes=[('Archivos JFLAP', '*.jff')]
         )
 
-        if not self.__es_archivo_texto(path=path):
-            mb.showerror(title="Error", message="El archivo seleccionado no es de texto plano!")
-            return ""
-
+        #if not self.__es_archivo_texto(path=path):
+        #    mb.showerror(title="Error", message="El archivo seleccionado no es de texto plano!")
+        #    return ""
+        print(path)
         self.__path_tabla_automata = path        
         
         try:
-            self.__table_reader.leer_datos(path=path)
+            self.__table_reader.leer_datos(path_xml=path)
             self.__label_ruta_afd.configure(text=path)
             self.__automata.cargar_datos(self.__table_reader)
 
@@ -178,7 +178,7 @@ class PantallaPrincipal:
 
     def __es_archivo_texto(self, path: str) -> bool:
         try:
-            file = open(path)
+            file = open(path, "r")
             file.readlines()
             file.close()
             return True
