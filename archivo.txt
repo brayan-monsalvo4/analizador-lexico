@@ -1,0 +1,4 @@
+int 
+palabras reservadas {STRUCTURE, INT, READ, POINTER, CHAR, CONST, END, WRITE, BEGIN, STRING, PROGRAM, THEN, VARS, ELSE, NULL, WHILE, IF, DO}
+
+----=-=-=ads=a-d554445454 54((((()))--{{{{}}}}

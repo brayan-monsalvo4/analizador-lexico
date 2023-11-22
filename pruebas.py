@@ -1,25 +1,33 @@
 from automata_reader import table_reader as tr
-
+from dfa import dfa, token
 import os
+import string
+import time
 
 def main():
-    tabla = tr.table_reader(f"{os.getcwd()}/tablita.txt")
+    start_time = time.time()
+
+    tabla = tr.table_reader()
+    tabla.leer_datos(path_xml=f"{os.getcwd()}/automata_interprete_sin_notas.jff")
     
-    for fila in tabla.tabla:
-        print(fila)
-    print("")
-    print("alfabeto: ", tabla.alfabeto)
-    print("estados:", tabla.estados)
-    print("estado inicial", tabla.estado_inicial)
-    print("estados finales:", tabla.estados_finales)
-    
-    print("transiciones")
-    for key in tabla.transiciones.keys():
-        print("estado: ", key, tabla.transiciones.get(key))
+    automata = dfa.Dfa()
 
-    print("tokens", tabla.tokens)
+    automata.cargar_datos(tabla=tabla)
+    automata.cargar_archivo_fuente(path=f"{os.getcwd()}/archivo.txt")
 
-    print("retrocesos", tabla.retrocesos)
+    #with open("resultado", "w") as file:
+    while token := automata.get_token():
+        if token.type != "SEPARADOR":
+            print(token)
+    print(automata.get_token())
+    print(automata.get_token())
+    print(automata.get_token())
+    automata.reiniciar()
+    print(automata.get_token())
+    end_time = time.time()  
+    elapsed_time = end_time - start_time  # Calcular el tiempo transcurrido
 
+    print(f"Tiempo de ejecución: {elapsed_time} segundos")
+        
 if __name__ == "__main__":
     main()
