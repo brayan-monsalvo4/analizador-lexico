@@ -1,4 +1,39 @@
-int 
-palabras reservadas {STRUCTURE, INT, READ, POINTER, CHAR, CONST, END, WRITE, BEGIN, STRING, PROGRAM, THEN, VARS, ELSE, NULL, WHILE, IF, DO}
+PROGRAM HolaMundo_1 
+CONST 
+    nombre = "carlitos" edad = 34 ocuoacion='X'
+STRUCTURE
+    alumno = { INT numero_carros ; POINTER next ;}
+VARS
+    INT aux, cont, altura ;
+    CHAR letra ;
+BEGIN 
+    puntero.campo = NULL;
 
-----=-=-=ads=a-d554445454 54((((()))--{{{{}}}}
+    nombre = "ALEJANDRO";
+
+    res = 10 + 10;
+
+    raiz = 19 / 1;
+
+    IF (10 < aux) THEN
+
+        READ (altura);
+
+        nombre = 19;
+
+        WRITE ( nombre );
+        WRITE ( "HOLA MUNDO XD" );
+
+        IF(10 == 20) THEN
+        WRITE("if anidado");
+        ELSE
+        WRITE("else dentro de if anidado");
+        END
+
+    ELSE
+        WRITE("ENTRO AL ELSE XD");
+        WRITE("FIN ELSE");
+    END
+
+END
+
