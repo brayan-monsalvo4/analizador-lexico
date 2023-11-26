@@ -13,6 +13,9 @@ class analizador:
         self.tabla_constantes : dict = dict()
         self.tabla_variables : dict = dict()
     
+    def comprobar_existencia(self, identificador : str) -> bool:
+        return identificador in self.tabla_simbolos.keys()
+
     def guardar_constante(self, identificador):
         if identificador in self.tabla_constantes.keys() or identificador in self.tabla_simbolos.keys():
             raise Exception
@@ -392,7 +395,6 @@ class analizador:
     
     def CON(self) -> bool:
         if self.predict(["INT", "CHAR", "STRING", "NULL", "IDENTIFICADOR"]):
-            print("entro con")
             operando_1 = self.M()
 
             self.get_next_token()
@@ -401,8 +403,6 @@ class analizador:
             self.get_next_token()
             operando_2 = self.M()
 
-            print(f"condicion: {operando_1} {operacion} {operando_2}")
-            print("salio con")
             return True
 
     def VALOR(self) -> str:            
