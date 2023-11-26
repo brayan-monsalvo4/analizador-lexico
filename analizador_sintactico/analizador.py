@@ -10,35 +10,33 @@ class analizador:
         self.tabla_simbolos : dict = dict()
         self.nombre_programa : str = None
 
-        self.tabla_constantes : dict = dict()
-        self.tabla_variables : dict = dict()
     
     def comprobar_existencia(self, identificador : str) -> bool:
         return identificador in self.tabla_simbolos.keys()
 
-    def guardar_constante(self, identificador):
-        if identificador in self.tabla_constantes.keys() or identificador in self.tabla_simbolos.keys():
+    def guardar_constante(self, identificador : str, tipo : str, valor : str):
+        if identificador in self.tabla_simbolos.keys():
             raise Exception
 
-        self.tabla_constantes.update( { identificador : self.token_actual.lexem } )
-        self.tabla_simbolos.update( { identificador : self.token_actual.type } )
+        self.tabla_simbolos.update( { identificador : { "TIPO" : tipo , "VALOR" : valor} } )
+        #print(f"guardando {self.tabla_simbolos}")
 
-    def guardar_variable(self, type : str):
-        if (self.token_actual.lexem in self.tabla_variables) or (self.token_actual.lexem in self.tabla_simbolos.keys()):
+    def guardar_variable(self, identificador : str, tipo : str, valor : str):
+        if self.token_actual.lexem in self.tabla_simbolos.keys():
             raise Exception
         
-        self.tabla_variables.update( { self.token_actual.lexem : None } )
-        self.tabla_simbolos.update( { self.token_actual.lexem : type } )
+        self.tabla_simbolos.update( { identificador : {"TIPO" : tipo , "VALOR" : valor} } )
+        #print(f"guardando {self.tabla_simbolos}")
 
     def get_next_token(self):
         self.token_actual = self.lexic.get_token()
         while self.token_actual.type == "SEPARADOR": 
             self.token_actual = self.lexic.get_token()
 
-        print(f"token leido : <{self.token_actual.type}:{self.token_actual.lexem}>")
+        #print(f"token leido : <{self.token_actual.type}:{self.token_actual.lexem}>")
 
     def match(self, tkns : list[str]):
-        print(f"haciendo match de {self.token_actual.type} en {tkns}")
+        #print(f"haciendo match de {self.token_actual.type} en {tkns}")
         if not self.token_actual.type in tkns:
             raise Exception
         
@@ -93,9 +91,9 @@ class analizador:
             self.match(["ASIGNA"]) 
             
             self.get_next_token()
-            self.VALOR()
+            tipo = self.VALOR()
 
-            self.guardar_constante(identificador=id)
+            self.guardar_constante(identificador=id, tipo=tipo, valor=self.token_actual.lexem)
             
             self.get_next_token()
             self.BP()
@@ -111,7 +109,7 @@ class analizador:
             self.get_next_token()
             self.CC()
             
-            self.get_next_token()
+            #self.get_next_token()
         if self.predict(["BEGIN", "VARS"]):
             return
 
@@ -151,7 +149,7 @@ class analizador:
             self.match(["LLAV_C"])
 
             print(f"estructura: {nombre_estructura} = {tipo_1} {campo_1} ; {tipo_2} {campo_2}")
-
+            self.get_next_token()
         elif self.predict(["BEGIN", "VARS"]):
             return
         else:
@@ -173,7 +171,7 @@ class analizador:
             self.get_next_token()
             self.match(["IDENTIFICADOR"])
 
-            self.guardar_variable(type=tipo)
+            self.guardar_variable(identificador=self.token_actual.lexem, tipo=tipo, valor="NULL")
 
             self.get_next_token()
             self.DPP(type=tipo)
@@ -193,7 +191,7 @@ class analizador:
             self.get_next_token()
             self.match(["IDENTIFICADOR"])
 
-            self.guardar_variable(type)
+            self.guardar_variable(identificador=self.token_actual.lexem, tipo=type, valor="NULL")
             
             self.get_next_token()
             self.DPP(type)
@@ -348,6 +346,7 @@ class analizador:
 
         self.get_next_token()
         res = self.CON()
+        print(res)
 
         self.get_next_token()
         self.match(["PAR_C"])
@@ -395,15 +394,52 @@ class analizador:
     
     def CON(self) -> bool:
         if self.predict(["INT", "CHAR", "STRING", "NULL", "IDENTIFICADOR"]):
-            operando_1 = self.M()
+            tipo_operando_1 = self.M()
+            if tipo_operando_1 == "IDENTIFICADOR" and (not self.comprobar_existencia(identificador=self.token_actual.lexem)):
+                raise Exception
+            valor_operando_1 = self.tabla_simbolos[self.token_actual.lexem]["VALOR"] if tipo_operando_1 == "IDENTIFICADOR" else self.token_actual.lexem
 
             self.get_next_token()
             operacion = self.OPCO()
 
             self.get_next_token()
-            operando_2 = self.M()
+            tipo_operando_2 = self.M()
+            if tipo_operando_2 == "IDENTIFICADOR" and (not self.comprobar_existencia(identificador=self.token_actual.lexem)):
+                raise Exception
+            valor_operando_2 = self.tabla_simbolos[self.token_actual.lexem]["VALOR"] if tipo_operando_2 == "IDENTIFICADOR" else self.token_actual.lexem
+            
+            try:
+                if operacion == "MENOR":
+                    valor_operando_1 = int(valor_operando_1)
+                    valor_operando_2 = int(valor_operando_2)
 
-            return True
+                    return valor_operando_1 < valor_operando_2
+
+                elif operacion == "MAYOR":
+                    valor_operando_1 = int(valor_operando_1)
+                    valor_operando_2 = int(valor_operando_2)
+
+                    return valor_operando_1 > valor_operando_2
+
+                elif operacion == "MENOR_IGUAL":
+                    valor_operando_1 = int(valor_operando_1)
+                    valor_operando_2 = int(valor_operando_2)
+
+                    return valor_operando_1 <= valor_operando_2
+
+                elif operacion == "MAYOR_IGUAL":
+                    valor_operando_1 = int(valor_operando_1)
+                    valor_operando_2 = int(valor_operando_2)
+
+                    return valor_operando_1 > valor_operando_2
+
+                elif operacion == "IDENTICO":
+                    return valor_operando_1 == valor_operando_2
+
+                elif operacion == "DISTINTO":
+                    return valor_operando_1 != valor_operando_2
+            except ValueError:
+                raise Exception
 
     def VALOR(self) -> str:            
         self.match(["INT", "CHAR", "STRING", "NULL"])
@@ -427,10 +463,9 @@ class analizador:
 
     def M(self) -> str:
         if self.predict(["IDENTIFICADOR"]):
-            return self.token_actual.lexem
+            return self.token_actual.type
         elif self.predict(["INT", "CHAR", "STRING", "NULL"]):
-            self.VALOR()
-            return self.token_actual.lexem
+            return self.VALOR()
         else:
             raise Exception
     
