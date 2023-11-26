@@ -18,14 +18,14 @@ class analizador:
         if identificador in self.tabla_simbolos.keys():
             raise Exception
 
-        self.tabla_simbolos.update( { identificador : { "TIPO" : tipo , "VALOR" : valor} } )
+        self.tabla_simbolos.update( { identificador : { "TIPO" : tipo , "VALOR" : valor,  "SIMBOLO" : "CONST"}} )
         #print(f"guardando {self.tabla_simbolos}")
 
     def guardar_variable(self, identificador : str, tipo : str, valor : str):
         if self.token_actual.lexem in self.tabla_simbolos.keys():
             raise Exception
         
-        self.tabla_simbolos.update( { identificador : {"TIPO" : tipo , "VALOR" : valor} } )
+        self.tabla_simbolos.update( { identificador : {"TIPO" : tipo , "VALOR" : valor, "SIMBOLO" : "VARS"} } )
         #print(f"guardando {self.tabla_simbolos}")
 
     def get_next_token(self):
@@ -208,18 +208,22 @@ class analizador:
             self.EP(id_1)
         
         elif self.predict(["READ"]):
+            self.match(["READ"])
             self.get_next_token()
             self.READ()
         
         elif self.predict(["WRITE"]):
+            self.match(["WRITE"])
             self.get_next_token()
             self.WRITE()
 
         elif self.predict(["WHILE"]):
+            self.match(["WHILE"])
             self.get_next_token()
             self.WHILE()
 
         elif self.predict(["IF"]):
+            self.match(["IF"])
             self.get_next_token()
             self.IF()
         
@@ -328,7 +332,17 @@ class analizador:
         self.match(["PAR_A"])
 
         self.get_next_token()
-        cosa_a_imprimir = self.M()
+        tipo = self.M()
+        dato = None
+
+        if tipo == "IDENTIFICADOR":
+            if not self.comprobar_existencia(identificador=self.token_actual.lexem):
+                raise Exception
+
+            dato = self.tabla_simbolos[self.token_actual.lexem]["VALOR"]
+        else:
+            dato = self.token_actual.lexem
+        
         
         self.get_next_token()
         self.match(["PAR_C"])
@@ -336,7 +350,7 @@ class analizador:
         self.get_next_token()
         self.match(["PUNTO_COMA"])
 
-        print(f"write : ({cosa_a_imprimir})")
+        print(f"write : ({tipo} {dato})")
 
         self.get_next_token()
         self.E()
@@ -373,12 +387,13 @@ class analizador:
             return 
     
     def WHILE(self):
-        self.get_next_token()
         self.match(["PAR_A"])
 
         self.get_next_token()
-        self.CON()
+        res = self.CON()
+        print(res)
 
+        self.get_next_token()
         self.match(["PAR_C"])
 
         self.get_next_token()
