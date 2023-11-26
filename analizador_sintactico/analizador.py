@@ -9,20 +9,20 @@ class analizador:
         self.lexic : Dfa = analex
         self.tabla_simbolos : dict = dict()
         self.nombre_programa : str = None
-
+        self.estructura : dict = dict()
     
     def comprobar_existencia(self, identificador : str) -> bool:
-        return identificador in self.tabla_simbolos.keys()
+        return identificador in self.tabla_simbolos.keys() or identificador in self.estructura.keys()
 
     def guardar_constante(self, identificador : str, tipo : str, valor : str):
-        if identificador in self.tabla_simbolos.keys():
+        if identificador in self.tabla_simbolos.keys() or identificador in self.estructura.keys():
             raise Exception
 
         self.tabla_simbolos.update( { identificador : { "TIPO" : tipo , "VALOR" : valor,  "SIMBOLO" : "CONST"}} )
         #print(f"guardando {self.tabla_simbolos}")
 
     def guardar_variable(self, identificador : str, tipo : str, valor : str):
-        if self.token_actual.lexem in self.tabla_simbolos.keys():
+        if self.token_actual.lexem in self.tabla_simbolos.keys() or identificador in self.estructura.keys():
             raise Exception
         
         self.tabla_simbolos.update( { identificador : {"TIPO" : tipo , "VALOR" : valor, "SIMBOLO" : "VARS"} } )
@@ -117,6 +117,9 @@ class analizador:
         if self.predict(["IDENTIFICADOR"]):
             nombre_estructura = self.token_actual.lexem
 
+            if self.comprobar_existencia(identificador=nombre_estructura):
+                raise Exception
+
             self.get_next_token()
             self.match(["ASIGNA"])
 
@@ -145,9 +148,49 @@ class analizador:
             self.get_next_token()
             self.match(["PUNTO_COMA"])
 
+            if tipo_1 == "POINTER" and tipo_2 != "POINTER":
+                self.estructura.update(  { 
+                                            nombre_estructura : { 
+                                                    "TIPO" : "STRUCT", 
+                                                    "VALOR" : {
+                                                        "CAMPO" : {
+                                                            "NOMBRE" : campo_2,
+                                                            "TIPO" : tipo_2,
+                                                            "VALOR" : "NULL"
+                                                        },
+                                                        "APUNTADOR": {
+                                                            "NOMBRE" : campo_1,
+                                                            "TIPO" : tipo_1,
+                                                            "VALOR" : "NULL"
+                                                        }
+                                                    }
+                                                    } 
+                                            }
+                                        )
+            elif tipo_1 != "POINTER" and tipo_2 == "POINTER":
+                self.estructura.update(  { 
+                                            nombre_estructura : { 
+                                                    "TIPO" : "STRUCT", 
+                                                    "VALOR" : {
+                                                        "CAMPO" : {
+                                                            "NOMBRE" : campo_1,
+                                                            "TIPO" : tipo_1,
+                                                            "VALOR" : "NULL"
+                                                        },
+                                                        "APUNTADOR": {
+                                                            "NOMBRE" : campo_2,
+                                                            "TIPO" : tipo_2,
+                                                            "VALOR" : "NULL"
+                                                        }
+                                                    }
+                                                    } 
+                                            }
+                                        )
+            else:
+                raise Exception
+            
             self.get_next_token()
             self.match(["LLAV_C"])
-
             print(f"estructura: {nombre_estructura} = {tipo_1} {campo_1} ; {tipo_2} {campo_2}")
             self.get_next_token()
         elif self.predict(["BEGIN", "VARS"]):
