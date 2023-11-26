@@ -8,6 +8,7 @@ class analizador:
         self.token_actual : Token = None
         self.lexic : Dfa = analex
         self.tabla_simbolos : dict = dict()
+        self.nombre_programa : str = None
 
         self.tabla_constantes : dict = dict()
         self.tabla_variables : dict = dict()
@@ -31,10 +32,10 @@ class analizador:
         while self.token_actual.type == "SEPARADOR": 
             self.token_actual = self.lexic.get_token()
 
-        #print(f"token leido : <{self.token_actual.type}:{self.token_actual.lexem}>")
+        print(f"token leido : <{self.token_actual.type}:{self.token_actual.lexem}>")
 
     def match(self, tkns : list[str]):
-        #print(f"haciendo match de {self.token_actual.type} en {tkns}")
+        print(f"haciendo match de {self.token_actual.type} en {tkns}")
         if not self.token_actual.type in tkns:
             raise Exception
         
@@ -48,8 +49,8 @@ class analizador:
         self.get_next_token()
         self.match(["IDENTIFICADOR"])
 
-        self.tabla_simbolos.update(  { self.token_actual.lexem : self.token_actual.type }  )
-
+        self.nombre_programa = self.token_actual.lexem
+        self.tabla_simbolos.update({self.nombre_programa : "NOMBRE_PROGRAMA"})
         self.get_next_token()
         self.A()
 
