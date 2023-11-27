@@ -2,6 +2,8 @@ from dfa.token import Token
 from dfa.dfa import Dfa
 from exceptions.exceptions import TokenIncorrecto
 from enum import Enum
+import copy
+from . import estructura
 
 class analizador:
     def __init__(self, analex : Dfa):
@@ -10,23 +12,47 @@ class analizador:
         self.tabla_simbolos : dict = dict()
         self.nombre_programa : str = None
         self.estructura : dict = dict()
+        self.struct : estructura.Structure = estructura.Structure()
     
-    def comprobar_existencia(self, identificador : str) -> bool:
-        return identificador in self.tabla_simbolos.keys() or identificador in self.estructura.keys()
+    def existe_en_tabla_simbolos(self, identificador : str) -> bool:
+        return identificador in self.tabla_simbolos.keys() or identificador == self.struct.nombre_estructura
 
     def guardar_constante(self, identificador : str, tipo : str, valor : str):
-        if identificador in self.tabla_simbolos.keys() or identificador in self.estructura.keys():
+        if self.existe_en_tabla_simbolos(identificador=identificador):
             raise Exception
 
         self.tabla_simbolos.update( { identificador : { "TIPO" : tipo , "VALOR" : valor,  "SIMBOLO" : "CONST"}} )
         #print(f"guardando {self.tabla_simbolos}")
 
     def guardar_variable(self, identificador : str, tipo : str, valor : str):
-        if self.token_actual.lexem in self.tabla_simbolos.keys() or identificador in self.estructura.keys():
+        if self.existe_en_tabla_simbolos(identificador=identificador):
             raise Exception
         
         self.tabla_simbolos.update( { identificador : {"TIPO" : tipo , "VALOR" : valor, "SIMBOLO" : "VARS"} } )
         #print(f"guardando {self.tabla_simbolos}")
+
+    def guardar_estructura(self, identificador : str):
+        if self.existe_en_tabla_simbolos(identificador=identificador):
+            raise Exception
+        
+        self.tabla_simbolos.update(  { 
+                            identificador : { 
+                                    "TIPO" : "STRUCT", 
+                                    "VALOR" : {
+                                        "CAMPO" : {
+                                            "NOMBRE" : self.struct.nombre_campo,
+                                            "TIPO" : self.struct.tipo_campo,
+                                            "VALOR" : "NULL"
+                                        },
+                                        "APUNTADOR": {
+                                            "NOMBRE" : self.struct.nombre_apuntador,
+                                            "TIPO" : self.struct.tipo_apuntador,
+                                            "VALOR" : "NULL"
+                                        }
+                                    }
+                                    } 
+                            }
+                        )
 
     def get_next_token(self):
         self.token_actual = self.lexic.get_token()
@@ -117,7 +143,7 @@ class analizador:
         if self.predict(["IDENTIFICADOR"]):
             nombre_estructura = self.token_actual.lexem
 
-            if self.comprobar_existencia(identificador=nombre_estructura):
+            if self.existe_en_tabla_simbolos(identificador=nombre_estructura):
                 raise Exception
 
             self.get_next_token()
@@ -167,6 +193,13 @@ class analizador:
                                                     } 
                                             }
                                         )
+                self.struct.nombre_estructura = nombre_estructura
+                self.struct.nombre_campo = campo_2
+                self.struct.tipo_campo = tipo_2
+                self.struct.valor_campo = "NULL"
+                self.struct.nombre_apuntador = campo_1
+                self.struct.tipo_apuntador = tipo_1
+                self.struct.valor_apuntador = "NULL"
             elif tipo_1 != "POINTER" and tipo_2 == "POINTER":
                 self.estructura.update(  { 
                                             nombre_estructura : { 
@@ -186,6 +219,13 @@ class analizador:
                                                     } 
                                             }
                                         )
+                self.struct.nombre_estructura = nombre_estructura
+                self.struct.nombre_campo = campo_1
+                self.struct.tipo_campo = tipo_1
+                self.struct.valor_campo = "NULL"
+                self.struct.nombre_apuntador = campo_2
+                self.struct.tipo_apuntador = tipo_2
+                self.struct.valor_apuntador = "NULL"
             else:
                 raise Exception
             
@@ -208,16 +248,30 @@ class analizador:
             return
 
     def DP(self):
-        if self.predict(["INT", "CHAR", "STRING", "POINTER"]):
-            tipo = self.token_actual.type
+        conjunto_predictivo = ["INT", "CHAR", "STRING", "POINTER"]
+        es_estructura = False
+        
+        if self.token_actual.type == "IDENTIFICADOR":
+            if not self.token_actual.lexem == self.struct.nombre_estructura:
+                raise Exception
+            
+            conjunto_predictivo.append("IDENTIFICADOR")
+            es_estructura = True
+
+        if self.predict(conjunto_predictivo):
+            tipo = self.token_actual.lexem if es_estructura else self.token_actual.type
 
             self.get_next_token()
             self.match(["IDENTIFICADOR"])
 
-            self.guardar_variable(identificador=self.token_actual.lexem, tipo=tipo, valor="NULL")
+            if es_estructura:
+                self.guardar_estructura(identificador=self.token_actual.lexem)
+            else:
+                self.guardar_variable(identificador=self.token_actual.lexem, tipo=tipo, valor="NULL")
 
+            
             self.get_next_token()
-            self.DPP(type=tipo)
+            self.DPP(type=tipo, es_estructura=es_estructura)
             
             self.match("PUNTO_COMA") 
 
@@ -229,15 +283,18 @@ class analizador:
         else:
             raise Exception
         
-    def DPP(self, type : str):
+    def DPP(self, type : str, es_estructura : bool):
         if self.predict(["COMA"]):
             self.get_next_token()
             self.match(["IDENTIFICADOR"])
 
-            self.guardar_variable(identificador=self.token_actual.lexem, tipo=type, valor="NULL")
-            
+            if es_estructura:
+                self.guardar_estructura(identificador=self.token_actual.lexem)
+            else:
+                self.guardar_variable(identificador=self.token_actual.lexem, tipo=type, valor="NULL")
+
             self.get_next_token()
-            self.DPP(type)
+            self.DPP(type, es_estructura=es_estructura)
         elif self.predict(["PUNTO_COMA"]):
             return
         else:
@@ -379,7 +436,7 @@ class analizador:
         dato = None
 
         if tipo == "IDENTIFICADOR":
-            if not self.comprobar_existencia(identificador=self.token_actual.lexem):
+            if not self.existe_en_tabla_simbolos(identificador=self.token_actual.lexem):
                 raise Exception
 
             dato = self.tabla_simbolos[self.token_actual.lexem]["VALOR"]
@@ -453,7 +510,7 @@ class analizador:
     def CON(self) -> bool:
         if self.predict(["INT", "CHAR", "STRING", "NULL", "IDENTIFICADOR"]):
             tipo_operando_1 = self.M()
-            if tipo_operando_1 == "IDENTIFICADOR" and (not self.comprobar_existencia(identificador=self.token_actual.lexem)):
+            if tipo_operando_1 == "IDENTIFICADOR" and (not self.existe_en_tabla_simbolos(identificador=self.token_actual.lexem)):
                 raise Exception
             valor_operando_1 = self.tabla_simbolos[self.token_actual.lexem]["VALOR"] if tipo_operando_1 == "IDENTIFICADOR" else self.token_actual.lexem
 
@@ -462,7 +519,7 @@ class analizador:
 
             self.get_next_token()
             tipo_operando_2 = self.M()
-            if tipo_operando_2 == "IDENTIFICADOR" and (not self.comprobar_existencia(identificador=self.token_actual.lexem)):
+            if tipo_operando_2 == "IDENTIFICADOR" and (not self.existe_en_tabla_simbolos(identificador=self.token_actual.lexem)):
                 raise Exception
             valor_operando_2 = self.tabla_simbolos[self.token_actual.lexem]["VALOR"] if tipo_operando_2 == "IDENTIFICADOR" else self.token_actual.lexem
             
