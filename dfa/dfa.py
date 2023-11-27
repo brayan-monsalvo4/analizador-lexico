@@ -119,7 +119,7 @@ class Dfa:
                     fin_archivo = True
                 
                 if not estado:
-                    raise exceptions.TokenIncorrecto((str(self.__fila), str(self.__columna)))
+                    raise exceptions.LexicoTokenIncorrecto((str(self.__fila), str(self.__columna)), actual=buffer)
                 
                 if estado in self.estados_finales:
                     buffer = buffer[: -(self.retrocesos.get(estado)) ] if self.retrocesos.get(estado) else buffer
