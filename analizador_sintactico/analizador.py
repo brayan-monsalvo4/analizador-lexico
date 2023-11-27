@@ -478,9 +478,46 @@ class analizador:
     def E_V(self, primer_token : Token, segundo_token : Token):
         if self.predict(["PUNTO_COMA"]):
             """AQUI SE ENCUENTRA EL FIN DE LA ASIGNACION SIMPLE ID = VALOR"""
-            
             print(f"{primer_token.lexem} = {segundo_token.lexem}")
+            print(f"primer tipo {primer_token.type} segundo tipo {segundo_token.type}") 
+            tipo = self.tabla_simbolos[primer_token.lexem]["TIPO"]
+            print(f"{tipo}")
+            
+            """
+            casos:
 
+            constante = valor           #invalido                                   #LISTO
+
+            variable = valor            #valido cuando sean del mismo tipo          #LISTO
+
+            apuntador = valor           #valido cuando el tipo sea NULL             #LISTO
+
+            estructura = valor          #valido cuando tipo sea NULL                #LISTO
+            """
+
+            self.existe_en_tabla_simbolos_hard(token=primer_token)
+
+            if self.tabla_simbolos[primer_token.lexem]["SIMBOLO"] == "CONST":
+                raise exc.SemanticoSobreescribirConstante(constante=primer_token.lexem)
+            
+            elif self.tabla_simbolos[primer_token.lexem]["SIMBOLO"] == "VARS":
+                if segundo_token.type != "NULL" and self.tabla_simbolos[primer_token.lexem]["TIPO"] != segundo_token.type:
+                    raise exc.SemanticoTokensIncompatibles(tokens=[primer_token, segundo_token])
+
+                self.tabla_simbolos[primer_token.lexem]["VALOR"] = segundo_token.lexem
+
+            elif self.tabla_simbolos[primer_token.lexem]["SIMBOLO"] == "POINTER":
+                if segundo_token.lexem != "NULL":
+                    raise exc.SemanticoTokensIncompatibles(tokens=[primer_token, segundo_token])
+                
+                self.tabla_simbolos[primer_token.lexem]["VALOR"] = "NULL"
+            
+            elif self.tabla_simbolos[primer_token.lexem]["SIMBOLO"] == "STRUCT":
+                if segundo_token.lexem != "NULL":
+                    raise exc.SemanticoTokensIncompatibles(tokens=[primer_token, segundo_token])
+
+                self.tabla_simbolos[primer_token.lexem]["VALOR"]["CAMPO"]["VALOR"] = "NULL"
+                self.tabla_simbolos[primer_token.lexem]["VALOR"]["APUNTADOR"]["VALOR"] = "NULL"
 
             self.get_next_token()
             self.E()
