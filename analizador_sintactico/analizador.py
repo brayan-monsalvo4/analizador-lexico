@@ -16,6 +16,21 @@ class analizador:
     
     def existe_en_tabla_simbolos(self, identificador : str) -> bool:
         return identificador in self.tabla_simbolos.keys() or identificador == self.struct.nombre_estructura
+    
+    def son_mismo_tipo_hard(self, id_tokens: list[Token]):
+        lista_auxiliar : list[str] = list()
+        for token in id_tokens:
+            lista_auxiliar.append( self.tabla_simbolos[token]["TIPO"] )
+
+        if not all(tipo == lista_auxiliar[0] for tipo in lista_auxiliar):
+            raise exc.SemanticoTokensIncompatibles(tokens=id_tokens) 
+
+    def existe_en_tabla_simbolos_hard(self, token : Token):
+        if not token.lexem in self.tabla_simbolos.keys() or token.lexem == self.struct.nombre_estructura:
+            raise exc.SemanticoSimboloNoDeclarado(token=token)
+
+    def consultar_variable_apuntada(self, id_apuntador : str) -> str:
+        return self.tabla_simbolos[id_apuntador]["VALOR"] 
 
     def guardar_constante(self, identificador : str, tipo : str, valor : str):
         if self.existe_en_tabla_simbolos(identificador=identificador):
@@ -28,7 +43,7 @@ class analizador:
         if self.existe_en_tabla_simbolos(identificador=identificador):
             raise Exception
         
-        self.tabla_simbolos.update( { identificador : {"TIPO" : tipo , "VALOR" : valor, "SIMBOLO" : "VARS"} } )
+        self.tabla_simbolos.update( { identificador : {"TIPO" : tipo , "VALOR" : valor, "SIMBOLO" : "VARS"} } ) if tipo != "POINTER" else self.tabla_simbolos.update( { identificador : {"TIPO" : tipo , "VALOR" : valor, "SIMBOLO" : tipo} } )
         #print(f"guardando {self.tabla_simbolos}")
 
     def guardar_estructura(self, identificador : str):
@@ -38,6 +53,7 @@ class analizador:
         self.tabla_simbolos.update(  { 
                             identificador : { 
                                     "TIPO" : "STRUCT", 
+                                    "SIMBOLO" : "STRUCT",
                                     "VALOR" : {
                                         "CAMPO" : {
                                             "NOMBRE" : self.struct.nombre_campo,
@@ -186,6 +202,7 @@ class analizador:
                 self.estructura.update(  { 
                                             nombre_estructura : { 
                                                     "TIPO" : "STRUCT", 
+                                                    "SIMBOLO" : "STRUCT",
                                                     "VALOR" : {
                                                         "CAMPO" : {
                                                             "NOMBRE" : campo_2,
@@ -212,6 +229,7 @@ class analizador:
                 self.estructura.update(  { 
                                             nombre_estructura : { 
                                                     "TIPO" : "STRUCT", 
+                                                    "SIMBOLO" : "STRUCT",
                                                     "VALOR" : {
                                                         "CAMPO" : {
                                                             "NOMBRE" : campo_1,
@@ -308,7 +326,7 @@ class analizador:
         else:
             raise Exception
 
-    def E (self):
+    def E (self, perform : bool = True):
         if self.predict(["IDENTIFICADOR"]):
             primer_token = copy.deepcopy(self.token_actual)
 
@@ -386,6 +404,72 @@ class analizador:
             
             print(f"{primer_token.lexem} = {segundo_token.lexem}")
 
+            self.existe_en_tabla_simbolos_hard(token=primer_token)
+            self.existe_en_tabla_simbolos_hard(token=segundo_token)
+
+            """casos:
+            constante = variable        #invalido   #LISTO
+            constante = constante       #invalido   #LISTO
+            constante = estructura      #invalido   #LISTO
+            constante = apuntador       #invalido   #LISTO
+
+            variable = constante        #valido cuando sean del mismo tipo      #LISTO
+            variable = estructura       #invalido                               #LISTO
+            variable = apuntador        #valido cuando el apuntador apunte hacia una variable del mismo tipo        #PENDIENTE DE PROBAR
+            variable = variable         #valido cuando sean del mismo tipo      #LISTO
+            
+
+            apuntador = apuntador       #valido                                 #LISTO
+            apuntador = constante       #valido                                 #LISTO
+            apuntador = estructura      #valido                                 #LISTO
+            apuntador = variable        #valido                                 #LISTO
+
+            estructura = estructura     #valido                                 #PENDIENTE
+            estructura = constante      #invalido                               #LISTO
+            estructura = apuntador      #valido cuando el apunte apunte hacia una estructura        #LISTO
+            estructura = variable       #invalido                               #LISTO
+            """
+
+            if self.tabla_simbolos[primer_token.lexem]["SIMBOLO"] == "CONST":
+                raise exc.SemanticoSobreescribirConstante(constante=primer_token)
+        
+            elif self.tabla_simbolos[primer_token.lexem]["SIMBOLO"] == "VARS":
+                if self.tabla_simbolos[segundo_token.lexem]["SIMBOLO"] == "CONST":
+                    self.son_mismo_tipo_hard(id_tokens=[primer_token.lexem, segundo_token.lexem])
+                    self.tabla_simbolos[primer_token.lexem]["VALOR"] = self.tabla_simbolos[segundo_token.lexem]["VALOR"]
+                
+                elif self.tabla_simbolos[segundo_token.lexem]["SIMBOLO"] == "STRUCT":
+                    raise exc.SemanticoTokensIncompatibles(tokens=[primer_token, segundo_token])
+
+                elif self.tabla_simbolos[segundo_token.lexem]["SIMBOLO"] == "POINTER":
+                    variable = self.consultar_variable_apuntada(id_apuntador=segundo_token.lexem)
+                    self.son_mismo_tipo_hard(id_tokens=[primer_token.lexem, variable])
+                    self.tabla_simbolos[primer_token.lexem]["VALOR"] = self.tabla_simbolos[variable]["VALOR"]
+                
+                elif self.tabla_simbolos[segundo_token.lexem]["SIMBOLO"] == "VARS":
+                    self.son_mismo_tipo_hard(id_tokens=[primer_token.lexem, segundo_token.lexem])
+                    self.tabla_simbolos[primer_token.lexem]["VALOR"] = self.tabla_simbolos[segundo_token.lexem]["VALOR"]
+
+            elif self.tabla_simbolos[primer_token.lexem]["SIMBOLO"] == "POINTER":
+                self.tabla_simbolos[primer_token.lexem]["VALOR"] =  segundo_token.lexem
+
+            elif self.tabla_simbolos[primer_token.lexem]["SIMBOLO"] == "STRUCT":
+                if self.tabla_simbolos[segundo_token.lexem]["SIMBOLO"] == "STRUCT":
+                    self.son_mismo_tipo_hard(id_tokens=[primer_token.lexem, segundo_token.lexem])
+                    self.tabla_simbolos[primer_token.lexem]["VALOR"] = self.tabla_simbolos[segundo_token.lexem]["VALOR"]
+                
+                if self.tabla_simbolos[segundo_token.lexem]["SIMBOLO"] == "CONST" or self.tabla_simbolos[segundo_token.lexem]["SIMBOLO"] == "VARS":
+                    raise exc.SemanticoTokensIncompatibles(tokens=[primer_token, segundo_token])
+                
+                if self.tabla_simbolos[segundo_token.lexem]["SIMBOLO"] == "POINTER":
+                    variable = self.consultar_variable_apuntada(id_apuntador=segundo_token.lexem)
+                    print(f"variable {variable}")
+
+                    self.son_mismo_tipo_hard(id_tokens=[primer_token.lexem, variable])
+
+                    self.tabla_simbolos[primer_token.lexem]["VALOR"] = self.tabla_simbolos[variable]["VALOR"]
+                    
+
             self.get_next_token()
             self.E()
         else:
@@ -396,6 +480,7 @@ class analizador:
             """AQUI SE ENCUENTRA EL FIN DE LA ASIGNACION SIMPLE ID = VALOR"""
             
             print(f"{primer_token.lexem} = {segundo_token.lexem}")
+
 
             self.get_next_token()
             self.E()
@@ -555,7 +640,7 @@ class analizador:
         self.match(["THEN"])
 
         self.get_next_token()
-        self.E()
+        self.E(perform=res)
 
         self.IF_P()
 
