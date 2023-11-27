@@ -1,6 +1,6 @@
 from dfa.token import Token
 from dfa.dfa import Dfa
-from exceptions.exceptions import TokenIncorrecto
+import exceptions.exceptions as exc
 from enum import Enum
 import copy
 from . import estructura
@@ -55,16 +55,19 @@ class analizador:
                         )
 
     def get_next_token(self):
-        self.token_actual = self.lexic.get_token()
-        while self.token_actual.type == "SEPARADOR": 
+        try:
             self.token_actual = self.lexic.get_token()
+            
+            while self.token_actual.type == "SEPARADOR": 
+                self.token_actual = self.lexic.get_token()
 
-        #print(f"token leido : <{self.token_actual.type}:{self.token_actual.lexem}>")
+        except AttributeError:
+            raise exc.LexicoNoTokenSiguiente
 
     def match(self, tkns : list[str]):
         #print(f"haciendo match de {self.token_actual.type} en {tkns}")
         if not self.token_actual.type in tkns:
-            raise Exception
+            raise exc.SemanticoTokenFaltante(token_actual=self.token_actual, tokens=tkns)
         
     def predict(self, tkns : list[str]) -> bool:
         return self.token_actual.type in tkns
@@ -95,11 +98,16 @@ class analizador:
         self.get_next_token()
         self.E()
 
-        print(self.token_actual)
-        self.match(["END"])
+        self.match(["END"])     
 
-        print("programa aceptado xd")
-    
+        try:
+            self.get_next_token()
+        except exc.LexicoNoTokenSiguiente:
+            if self.token_actual == None:
+                print("programa aceptado xd")
+            else: 
+                raise exc.SemanticoProgramaIncorrecto(token=self.token_actual)
+            
     def B(self):
         if self.predict(["CONST"]):
             self.get_next_token()
@@ -300,12 +308,12 @@ class analizador:
         else:
             raise Exception
 
-    def E(self):
+    def E (self):
         if self.predict(["IDENTIFICADOR"]):
-            id_1 = self.token_actual.lexem
+            primer_token = copy.deepcopy(self.token_actual)
 
             self.get_next_token()
-            self.EP(id_1)
+            self.E_I(primer_token=primer_token)
         
         elif self.predict(["READ"]):
             self.match(["READ"])
@@ -330,84 +338,162 @@ class analizador:
         elif self.predict(["END", "ELSE"]):
             return
         else:
-            raise Exception
-    
-    def EP(self, id_1):
-        if self.predict(["PUNTO"]):
-            self.get_next_token()
-            self.match(["IDENTIFICADOR"])
+            raise exc.SemanticoTokenIncorrecto(tokens=["IDENTIFICADOR", "READ", "WRITE", "WHILE", "IF", "END", "ELSE"],token_actual=self.token_actual)
 
-            id_2 = self.token_actual.lexem
-
+    def E_I(self, primer_token : Token):
+        if self.predict(["ASIGNA"]):
             self.get_next_token()
-            self.match(["ASIGNA"])
+            self.E_II(primer_token=primer_token)
 
+        elif self.predict(["PUNTO"]):
             self.get_next_token()
-            tipo_valor = self.VALOR()
-            valor = self.token_actual.lexem
-
-            self.get_next_token()
-            self.match(["PUNTO_COMA"])
-
-            print(f"Apuntador: {id_1}.{id_2} = {tipo_valor} {valor} ;")
-
-            self.get_next_token()
-            self.E()
-        elif self.predict(["ASIGNA"]):
-            self.get_next_token()
-            self.EPP(id_1)
+            self.E_III(primer_token=primer_token)
         else:
-            raise Exception
+            raise exc.SemanticoTokenIncorrecto(token_actual=self.token_actual, tokens=["=", "."])
 
-    def EPP(self, variable):
-        if self.predict(["IDENTIFICACION"]):
-            operando_1 = self.token_actual.lexem
-
-            self.get_next_token()
-            operacion = self.OPMA()
+    def E_II(self, primer_token : Token):
+        if self.predict(["IDENTIFICADOR"]):
+            seg_token= copy.deepcopy(self.token_actual)
 
             self.get_next_token()
-            operando_2 = self.M()
+            self.E_IV(primer_token=primer_token, segundo_token =seg_token)
+
+        elif self.predict(["INT", "CHAR", "STRING", "NULL"]):
+            seg_token = copy.deepcopy(self.token_actual)
+
+            self.get_next_token()
+            self.E_V(primer_token=primer_token, segundo_token=seg_token)
+        else:
+            raise exc.SemanticoTokenIncorrecto(token_actual=self.token_actual, tokens=["IDENTIFICADOR", "INT", "CHAR", "STRING", "NULL"])
+
+    def E_III(self, primer_token : Token):
+        self.match(["IDENTIFICADOR"])
+
+        seg_token = copy.deepcopy(self.token_actual)
+        
+        self.get_next_token()
+        self.E_VI(primer_token=primer_token, segundo_token=seg_token)
+
+    def E_IV(self, primer_token : Token, segundo_token : Token):
+        if self.predict(["SUMA", "RESTA", "MULTI", "DIV", "MOD"]):
+            tercer_token = copy.deepcopy(self.token_actual)
+
+            self.get_next_token()
+            self.E_VII(primer_token=primer_token, segundo_token=segundo_token, tercer_token=tercer_token)
+        
+        elif self.predict(["PUNTO_COMA"]):
+            """ AQUI SE ENCUENTRA EL FIN DE LA ASIGNACION SIMPLE ID = ID  """
+            
+            print(f"{primer_token.lexem} = {segundo_token.lexem}")
+
+            self.get_next_token()
+            self.E()
+        else:
+            raise exc.SemanticoTokenIncorrecto(token_actual=self.token_actual, tokens=["SUMA", "RESTA", "MULTI", "DIV", "MOD"])
+    
+    def E_V(self, primer_token : Token, segundo_token : Token):
+        if self.predict(["PUNTO_COMA"]):
+            """AQUI SE ENCUENTRA EL FIN DE LA ASIGNACION SIMPLE ID = VALOR"""
+            
+            print(f"{primer_token.lexem} = {segundo_token.lexem}")
+
+            self.get_next_token()
+            self.E()
+        
+        elif self.predict(["SUMA", "RESTA", "DIV", "MULTI", "MOD"]):
+            tercer_token = copy.deepcopy(self.token_actual)
+
+            self.get_next_token()
+            self.E_VIII(primer_token=primer_token, segundo_token=segundo_token, tercer_token=tercer_token)
+        else:
+            raise exc.SemanticoTokenIncorrecto(token_actual=self.token_actual, tokens=["PUNTO_COMA", "SUMA", "RESTA", "DIV", "MULTI", "MOD"])
+  
+    def E_VI(self, primer_token : Token, segundo_token : Token):
+        self.match(["ASIGNA"])
+
+        self.get_next_token()
+        self.E_IX(primer_token=primer_token, segundo_token=segundo_token)
+
+    def E_VII(self, primer_token : Token, segundo_token : Token, tercer_token : Token):
+        if self.predict(["IDENTIFICADOR"]):
+            """AQUI TERMINA LA EXPRESION DE TIPO ID = ID OP ID """
+            cuarto_token = copy.deepcopy(self.token_actual)
 
             self.get_next_token()
             self.match(["PUNTO_COMA"])
 
-            print(f"expresion: {variable} = {operando_1} {operacion} {operando_2}")
+            print(f"{primer_token.lexem} = {segundo_token.lexem} {tercer_token.lexem} {cuarto_token.lexem}")
 
             self.get_next_token()
             self.E()
+        
         elif self.predict(["INT", "CHAR", "STRING", "NULL"]):
-            self.match(["INT", "CHAR", "STRING", "NULL"])
-            tipo_dato = self.VALOR()
+            """AQUI TERMINA LA EXPRESION DE TIPO: ID = ID OP VALOR """
+            cuarto_token = copy.deepcopy(self.token_actual)
+
+            self.get_next_token()
+            self.match(["PUNTO_COMA"])
+
+            print(f"{primer_token.lexem} = {segundo_token.lexem} {tercer_token.lexem} {cuarto_token.lexem}")
+
+            self.get_next_token()
+            self.E()
+        else:
+            raise exc.SemanticoTokenIncorrecto(token_actual=self.token_actual, tokens=["IDENTIFICADOR", "INT", "CHAR", "STRING", "NULL"])
+
+    def E_VIII(self, primer_token : Token, segundo_token : Token, tercer_token : Token):
+        """ AQUI SE ENCUENTRA EL FINAL DE LA EXPRESION: ID = VALOR OP ID """
+        if self.predict(["IDENTIFICADOR"]):
+            cuarto_token = copy.deepcopy(self.token_actual)
+
+            self.get_next_token()
+            self.match(["PUNTO_COMA"])
+
+            print(f"{primer_token.lexem} = {segundo_token.lexem} {tercer_token.lexem} {cuarto_token.lexem}")
+
+            self.get_next_token()
+            self.E()
+
+        elif self.predict(["INT", "STRING", "CHAR", "NULL"]):
+            """ AQUI SE ENCUENTRA EL FINAL DE LA EXPRESION ID = VALOR OP VALOR  """
+            cuarto_token = copy.deepcopy(self.token_actual)
+
+            self.get_next_token()
+            self.match(["PUNTO_COMA"])
+
+            print(f"{primer_token.lexem} = {segundo_token.lexem} {tercer_token.lexem} {cuarto_token.lexem}")
             
             self.get_next_token()
-            self.EPPP(primer_operando=self.token_actual.lexem, variable=variable)
-        
-        else:
-            raise Exception
-        
-    def EPPP(self, variable ,primer_operando):
-        if self.predict(["PUNTO_COMA"]):
-            self.match(["PUNTO_COMA"])
-
-            print(f"asignacion : {variable} = {primer_operando}")
-
-            self.get_next_token()
             self.E()
-        
-        elif self.predict(["SUMA", "RESTA", "MULTI", "DIV"]):
-            operador = self.OPMA()
+        else:
+            raise exc.SemanticoTokenIncorrecto(token_actual=self.token_actual, tokens=["IDENTIFICADOR", "INT", "STRING", "CHAR", "NULL"])
 
-            self.get_next_token()
-            operando_2 = self.M()
+    def E_IX(self, primer_token : Token, segundo_token : Token):
+        if self.predict(["IDENTIFICADOR"]):
+            """AQUI TERMINA LA ASIGNACION DE UN ID A UNA ESTRUCTRA : ID.ID = ID"""
+            tercer_token = copy.deepcopy(self.token_actual)
 
             self.get_next_token()
             self.match(["PUNTO_COMA"])
-            print(f"expresion: {variable} = {primer_operando} {operador} {operando_2}")
+
+            print(f"{primer_token.lexem}.{segundo_token.lexem} = {tercer_token.lexem}")
+
+            self.get_next_token()
+            self.E()
+
+        elif self.predict(["INT", "CHAR", "STRING", "NULL"]):
+            """AQUI TERMINA LA ASIGNACION DE UN VALOR A UNA ESTRUCTURA : ID.ID = VALOR"""
+            tercer_token = copy.deepcopy(self.token_actual)
+
+            self.get_next_token()
+            self.match(["PUNTO_COMA"])
+
+            print(f"{primer_token.lexem}.{segundo_token.lexem} = {tercer_token.lexem}")
+
             self.get_next_token()
             self.E()
         else:
-            raise Exception
+            raise exc.SemanticoTokenIncorrecto(token_actual=self.token_actual, tokens=["IDENTIFICADOR", "INT", "CHAR", "STRING", "NULL"])
 
     def READ(self):
         self.match(["PAR_A"])
@@ -437,9 +523,9 @@ class analizador:
 
         if tipo == "IDENTIFICADOR":
             if not self.existe_en_tabla_simbolos(identificador=self.token_actual.lexem):
-                raise Exception
+                raise exc.SemanticoSimboloNoDeclarado(token=self.token_actual)
 
-            dato = self.tabla_simbolos[self.token_actual.lexem]["VALOR"]
+            dato = self.tabla_simbolos[self.token_actual.lexem]["VALOR"] if self.token_actual.lexem != self.struct.nombre_estructura else self.estructura
         else:
             dato = self.token_actual.lexem
         
@@ -554,6 +640,7 @@ class analizador:
                 elif operacion == "DISTINTO":
                     return valor_operando_1 != valor_operando_2
             except ValueError:
+                print(self.token_actual)
                 raise Exception
 
     def VALOR(self) -> str:            
