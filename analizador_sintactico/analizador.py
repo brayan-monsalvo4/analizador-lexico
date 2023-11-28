@@ -598,7 +598,74 @@ class analizador:
             self.get_next_token()
             self.match(["PUNTO_COMA"])
 
+            """
+            casos:
+
+            id . campo = CONSTANTE         #el campo debe ser del mismo tipo que la constante           #LISTO
+            id . campo = VARIABLE          #el campo debe ser del mismo tipo que la variable            #LISTO
+            id . campo = POINTER           #el campo debe ser del mismo tipoque el puntero          #LISTO
+            id . campo = STRUCTURE         #invalido           #LISTO
+            
+            id . apuntador = CONSTANTE      #invalido
+            id . apuntador = VARIABLE       #invalido
+            id . apuntador = POINTER        #unicamente si el puntero apunta hacia una estructura
+            id . apuntador = estructura     #valido
+                                            #la estructura no existe
+                                            #el segundo id no pertenece al campo de la estructura
+            """
+
             print(f"{primer_token.lexem}.{segundo_token.lexem} = {tercer_token.lexem}")
+
+            self.existe_en_tabla_simbolos_hard(token=primer_token)
+            self.existe_en_tabla_simbolos_hard(token=tercer_token)
+
+            if not self.tabla_simbolos[primer_token.lexem]["SIMBOLO"] == "STRUCT":
+                raise Exception
+
+            if self.tabla_simbolos[primer_token.lexem]["SIMBOLO"] == "STRUCT":
+                if self.tabla_simbolos[primer_token.lexem]["VALOR"]["CAMPO"]["NOMBRE"] == segundo_token.lexem:
+                    if self.tabla_simbolos[tercer_token.lexem]["SIMBOLO"] == "CONST" or self.tabla_simbolos[tercer_token.lexem]["SIMBOLO"] == "VARS":
+                        if not self.tabla_simbolos[primer_token.lexem]["VALOR"]["CAMPO"]["TIPO"] == self.tabla_simbolos[tercer_token.lexem]["TIPO"]:
+                            raise exc.SemanticoTokensIncompatibles(tokens=[primer_token, tercer_token])                        
+
+                        self.tabla_simbolos[primer_token.lexem]["VALOR"]["CAMPO"]["VALOR"] = self.tabla_simbolos[tercer_token.lexem]["VALOR"]
+
+                    elif self.tabla_simbolos[tercer_token.lexem]["SIMBOLO"] == "POINTER":
+                        variable = self.consultar_variable_apuntada(id_apuntador=tercer_token.lexem)
+
+                        if variable == "NULL":
+                            raise exc.SemanticoTokensIncompatibles(tokens=[primer_token, tercer_token])
+
+                        if not self.tabla_simbolos[primer_token.lexem]["VALOR"]["CAMPO"]["TIPO"] == self.tabla_simbolos[variable]["TIPO"]:
+                            raise exc.SemanticoTokensIncompatibles(tokens=[primer_token, tercer_token])
+                        
+                        self.tabla_simbolos[primer_token.lexem]["VALOR"]["CAMPO"]["VALOR"] = self.tabla_simbolos[variable]["VALOR"]
+
+                    elif self.tabla_simbolos[tercer_token.lexem]["SIMBOLO"] == "STRUCT":
+                        raise exc.SemanticoTokensIncompatibles(tokens=[primer_token, tercer_token])
+                
+                elif self.tabla_simbolos[primer_token.lexem]["VALOR"]["APUNTADOR"]["NOMBRE"] == segundo_token.lexem:
+                    
+                    if self.tabla_simbolos[tercer_token.lexem]["SIMBOLO"] == "CONST" or self.tabla_simbolos[tercer_token.lexem]["SIMBOLO"] == "VARS":
+                        raise exc.SemanticoEstructuraApuntadorIncorrecto(apuntador=tercer_token)
+                    
+                    elif self.tabla_simbolos[tercer_token.lexem]["SIMBOLO"] == "STRUCT":
+                        self.tabla_simbolos[primer_token.lexem]["VALOR"]["APUNTADOR"]["VALOR"] = tercer_token.lexem
+
+                    elif self.tabla_simbolos[tercer_token.lexem]["SIMBOLO"] == "POINTER":
+                        variable = self.consultar_variable_apuntada(id_apuntador=tercer_token.lexem)
+
+                        if variable == "NULL":
+                            raise exc.SemanticoEstructuraApuntadorIncorrecto(apuntador=tercer_token)
+                        
+                        if not self.tabla_simbolos[variable]["TIPO"] == "STRUCT":
+                            raise exc.SemanticoTokensIncompatibles(tokens=[primer_token, tercer_token])
+
+                        self.tabla_simbolos[primer_token.lexem]["VALOR"]["APUNTADOR"]["VALOR"] = variable
+
+                    
+                else:
+                    raise exc.SemanticoEstructuraIncorrecta(campo=segundo_token)
 
             self.get_next_token()
             self.E()
