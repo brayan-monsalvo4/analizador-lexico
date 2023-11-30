@@ -86,3 +86,8 @@ class SemanticoPunteroNulo(Exception):
     def __init__(self, token : Token):
         self.message = f"Error semantico: el puntero es nulo.{token.lexem}, en {token.initial_coordinates} y {token.final_coordinates}."  
         super().__init__(self.message)
+
+class SemanticoValorPorTecladoIncorrecto(Exception):
+    def __init__(self, valor : str):
+        self.message = f"Error semantico: el valor leido por teclado es incorrecto. {valor}."    
+        super().__init__(self.message)
