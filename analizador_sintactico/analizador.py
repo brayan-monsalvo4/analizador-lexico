@@ -14,6 +14,9 @@ class analizador:
         self.estructura : dict = dict()
         self.datos_estructura : estructura.Structure = estructura.Structure()
         self.nombre_estructura : str = None
+        self.posicion_while : list[int] = list()
+        self.posicion_condicion : list[int] = list()
+        
 
     def existe_en_tabla_simbolos(self, identificador : str):
         return identificador in self.tabla_simbolos.keys()
@@ -33,7 +36,6 @@ class analizador:
         return self.tabla_simbolos[valor]
 
     def son_mismo_tipo(self, lista_tokens: list[Token]):
-        print(f"son lo mismo {lista_tokens}")
         return all(token.lexem == lista_tokens[0].lexem for token in lista_tokens)
 
     def guardar_constante(self, identificador_token : Token, tipo : str, valor : str):
@@ -140,7 +142,17 @@ class analizador:
         if not self.token_actual.type in tkns:
             raise exc.SemanticoTokenFaltante(token_actual=self.token_actual, tokens=tkns)
         
+    def match_final(self):
+        try:
+            self.get_next_token()
+        except AttributeError:
+            return
+        else:
+            return exc.SemanticoProgramaIncorrecto(token=self.token_actual)  
+
+    
     def predict(self, tkns : list[str]) -> bool:
+        #print(self.token_actual)
         return self.token_actual.type in tkns
 
     def S (self):
@@ -151,7 +163,13 @@ class analizador:
         self.match(["IDENTIFICADOR"])
 
         self.nombre_programa = self.token_actual.lexem
-        self.tabla_simbolos.update({self.nombre_programa : "NOMBRE_PROGRAMA"})
+        self.tabla_simbolos.update({
+            self.nombre_programa : {
+                "TIPO" : "STRING",
+                "SIMBOLO" : "CONST",
+                "VALOR" : f"{self.nombre_programa}"
+            }
+        })
         self.get_next_token()
         self.A()
 
@@ -169,15 +187,15 @@ class analizador:
         self.get_next_token()
         self.E()
 
-        self.match(["END"])     
+        self.match(["END"])
 
-        try:
-            self.get_next_token()
-        except exc.LexicoNoTokenSiguiente:
-            if self.token_actual == None:
-                print("programa aceptado xd")
-            else: 
-                raise exc.SemanticoProgramaIncorrecto(token=self.token_actual)
+        #try:
+        #    self.get_next_token()
+        #except exc.LexicoNoTokenSiguiente:
+        #    if self.token_actual == None:
+        #        print("programa aceptado xd")
+        #    else: 
+        #        raise exc.SemanticoProgramaIncorrecto(token=self.token_actual)
             
     def B(self):
         if self.predict(["CONST"]):
@@ -271,7 +289,6 @@ class analizador:
             return
 
     def DP(self):
-        print(self.nombre_estructura)
         if self.predict(["INT", "CHAR", "STRING", "POINTER"]):
             tipo = self.token_actual.type
             
@@ -289,15 +306,12 @@ class analizador:
             self.DP()  
 
         elif self.predict(["IDENTIFICADOR"]) and self.token_actual.lexem == self.nombre_estructura:
-            print("entro estructura")
             tipo = self.nombre_estructura
-            print(f"tipo en estructura : {tipo}")
 
             self.get_next_token()
             self.match(["IDENTIFICADOR"])
 
             identificador = copy.deepcopy(self.token_actual)
-            print(f"identificador en estructura {identificador}")
 
             self.guardar_variable(identificador_token=identificador, tipo=tipo)
 
@@ -332,6 +346,9 @@ class analizador:
             raise Exception
 
     def E(self, perform : bool = True):
+        if not perform:
+            return 
+        
         if self.predict(["IDENTIFICADOR"]):
             primer_token = copy.deepcopy(self.token_actual)
 
@@ -339,7 +356,7 @@ class analizador:
             self.match(["ASIGNA"])
 
             self.get_next_token()
-            self.E_I(perform=perform, primer_token=primer_token)
+            self.E_I(primer_token=primer_token)
 
         elif self.predict(["ESTRUCTURA"]):
             primer_token = copy.deepcopy(self.token_actual)
@@ -348,7 +365,7 @@ class analizador:
             self.match(["ASIGNA"])
 
             self.get_next_token()
-            self.E_I(perform=perform, primer_token=primer_token)
+            self.E_I(primer_token=primer_token)
 
         elif self.predict(["READ"]):
             self.get_next_token()
@@ -360,6 +377,11 @@ class analizador:
         
         elif self.predict(["WHILE"]):
             self.match(["WHILE"])
+            self.posicion_while.append( self.lexic.posicion - 5 )
+            inicio = self.token_actual.initial_coordinates
+            self.lexic.fila = inicio[0]
+            self.lexic.columna = inicio[1]
+
             self.get_next_token()
             self.WHILE()
 
@@ -373,24 +395,24 @@ class analizador:
         else:
             raise exc.SemanticoTokenIncorrecto(tokens=["IDENTIFICADOR", "ESTRUCTURA", "END","ELSE"], token_actual=self.token_actual)
 
-    def E_I(self, perform : bool, primer_token : Token):
+    def E_I(self, primer_token : Token):
         if self.predict(["INT", "CHAR", "STRING", "NULL"]):
             segundo_token = copy.deepcopy(self.token_actual)
 
             self.get_next_token()
-            self.E_II(perform=perform, primer_token=primer_token, segundo_token=segundo_token)
+            self.E_II( primer_token=primer_token, segundo_token=segundo_token)
 
         elif self.predict(["IDENTIFICADOR"]):
             segundo_token = copy.deepcopy(self.token_actual)
 
             self.get_next_token()
-            self.E_II(perform=perform, primer_token=primer_token, segundo_token=segundo_token)
+            self.E_II(primer_token=primer_token, segundo_token=segundo_token)
 
         elif self.predict(["ESTRUCTURA"]):
             segundo_token = copy.deepcopy(self.token_actual)
 
             self.get_next_token()
-            self.E_II(perform=perform, primer_token=primer_token, segundo_token=segundo_token)
+            self.E_II(primer_token=primer_token, segundo_token=segundo_token)
 
         else:
             raise exc.SemanticoTokenIncorrecto(tokens=["INT", "CHAR", "STRING", "NULL", "IDENTIFICADOR", "ESTRUCTURA"], token_actual=self.token_actual)
@@ -433,13 +455,11 @@ class analizador:
 
     def validar_caso_puntero(self, token_izquierdo : Token, token_derecho : Token):
         if not self.existe_en_tabla_simbolos(identificador=token_derecho.lexem):
-            print("entro caoso pntero xd")
 
             if token_derecho.type in ["INT", "CHAR", "STRING"]:
                 raise exc.SemanticoTokensIncompatibles(tokens=[token_izquierdo, token_derecho])
             
             elif token_derecho.type == "NULL" and token_derecho.lexem == "NULL":
-                print(f" panchito : {token_derecho.lexem}")
                 self.tabla_simbolos[token_izquierdo.lexem]["VALOR"] = "NULL"
 
         if not self.existe_en_tabla_simbolos(identificador=token_derecho.lexem):
@@ -448,6 +468,7 @@ class analizador:
         self.tabla_simbolos[token_izquierdo.lexem]["VALOR"] = token_derecho.lexem
 
     def validar_caso_estructura(self, token_izquierdo : Token, token_derecho : Token):
+        
         if not self.existe_en_tabla_simbolos(identificador=token_izquierdo.lexem):
             raise exc.SemanticoSimboloNoDeclarado(token=token_izquierdo)
         elif not self.existe_en_tabla_simbolos(identificador=token_derecho.lexem):
@@ -457,15 +478,14 @@ class analizador:
         self.tabla_simbolos[f"{token_izquierdo.lexem}.{self.datos_estructura.nombre_campo}"]["VALOR"] = self.tabla_simbolos[f"{token_derecho.lexem}.{self.datos_estructura.nombre_campo}"]["VALOR"]
         self.tabla_simbolos[f"{token_izquierdo.lexem}.{self.datos_estructura.nombre_apuntador}"]["VALOR"] = self.tabla_simbolos[f"{token_derecho.lexem}.{self.datos_estructura.nombre_apuntador}"]["VALOR"]
         
-    def E_II(self, perform : bool, primer_token : Token, segundo_token : Token):
+    def E_II(self, primer_token : Token, segundo_token : Token):
         if self.predict(["SUMA", "RESTA", "DIV", "MULTI"]):
             tercer_token = copy.deepcopy(self.token_actual)
 
             self.get_next_token()
-            self.E_III(perform=perform, primer_token=primer_token, segundo_token=segundo_token, tercer_token=tercer_token)
+            self.E_III(primer_token=primer_token, segundo_token=segundo_token, tercer_token=tercer_token)
         
         elif self.predict(["PUNTO_COMA"]):
-
 
             if not self.existe_en_tabla_simbolos(identificador=primer_token.lexem):
                 raise exc.SemanticoSimboloNoDeclarado(token=primer_token)
@@ -477,16 +497,16 @@ class analizador:
                 self.validar_casos(token_izquierdo=primer_token, token_derecho=segundo_token)
             elif self.tabla_simbolos[primer_token.lexem]["SIMBOLO"] == "CONST":
                 raise exc.SemanticoSobreescribirConstante(constante=primer_token)
-
+            
             self.get_next_token()
-            self.E(perform=perform)
+            self.E()
 
             return 
         
         else:
             raise exc.SemanticoTokenIncorrecto(token_actual=self.token_actual, tokens=["SUMA", "RESTA", "DIV", "MULTI", "PUNTO_COMA"])
 
-    def E_III(self, perform : bool, primer_token : Token, segundo_token : Token, tercer_token : Token):
+    def E_III(self, primer_token : Token, segundo_token : Token, tercer_token : Token):
         if self.predict(["INT", "CHAR", "STRING", "NULL"]):
             cuarto_token = self.token_actual
 
@@ -507,26 +527,23 @@ class analizador:
             operacion = tercer_token.lexem
             segundo_operando = None if cuarto_token.lexem == "NULL" else cuarto_token.lexem
             
-            if perform:
-                try:
-                    print(f"{primer_operando}{operacion}{segundo_operando}")
-                    resultado = eval(f"{primer_operando}{operacion}{segundo_operando}")
-                    print(f"{resultado}  {type(resultado)}")
+            try:
+                resultado = eval(f"{primer_operando}{operacion}{segundo_operando}")
 
-                    if type(resultado) == int and self.tabla_simbolos[primer_token.lexem]["TIPO"] == "INT":
-                        self.tabla_simbolos[primer_token.lexem]["VALOR"] = str(resultado)
-                    elif type(resultado) == str and self.tabla_simbolos[primer_token.lexem]["TIPO"] == "STRING":
-                        self.tabla_simbolos[primer_token.lexem]["VALOR"] = str(resultado)
-                    elif type(resultado) == int and self.tabla_simbolos[primer_token.lexem]["TIPO"] != "INT":
-                        raise exc.SemanticoTokensIncompatibles(tokens=[primer_token, segundo_token, cuarto_token])
-                    elif type(resultado) == str and self.tabla_simbolos[primer_operando]["TIPO"] != "STRING":
-                        raise exc.SemanticoTokensIncompatibles(tokens=[primer_token, segundo_token, cuarto_token])
-
-                except Exception as e:
+                if type(resultado) == int and self.tabla_simbolos[primer_token.lexem]["TIPO"] == "INT":
+                    self.tabla_simbolos[primer_token.lexem]["VALOR"] = str(resultado)
+                elif type(resultado) == str and self.tabla_simbolos[primer_token.lexem]["TIPO"] == "STRING":
+                    self.tabla_simbolos[primer_token.lexem]["VALOR"] = str(resultado)
+                elif type(resultado) == int and self.tabla_simbolos[primer_token.lexem]["TIPO"] != "INT":
+                    raise exc.SemanticoTokensIncompatibles(tokens=[primer_token, segundo_token, cuarto_token])
+                elif type(resultado) == str and self.tabla_simbolos[primer_operando]["TIPO"] != "STRING":
                     raise exc.SemanticoTokensIncompatibles(tokens=[primer_token, segundo_token, cuarto_token])
 
+            except Exception as e:
+                raise exc.SemanticoTokensIncompatibles(tokens=[primer_token, segundo_token, cuarto_token])
+
             self.get_next_token()
-            self.E(perform=perform)
+            self.E()
         
         elif self.predict(["IDENTIFICADOR"]):
             cuarto_token = self.token_actual
@@ -552,26 +569,23 @@ class analizador:
 
             operacion = tercer_token.lexem
 
-            if perform:
-                try:
-                    print(f"{primer_operando}{operacion}{segundo_operando}")
-                    resultado = eval(f"{primer_operando}{operacion}{segundo_operando}")
-                    print(f"{resultado}  {type(resultado)}")
+            try:
+                resultado = eval(f"{primer_operando}{operacion}{segundo_operando}")
 
-                    if type(resultado) == int and self.tabla_simbolos[primer_token.lexem]["TIPO"] == "INT":
-                        self.tabla_simbolos[primer_token.lexem]["VALOR"] = str(resultado)
-                    elif type(resultado) == str and self.tabla_simbolos[primer_token.lexem]["TIPO"] == "STRING":
-                        self.tabla_simbolos[primer_token.lexem]["VALOR"] = str(resultado)
-                    elif type(resultado) == int and self.tabla_simbolos[primer_token.lexem]["TIPO"] != "INT":
-                        raise exc.SemanticoTokensIncompatibles(tokens=[primer_token, segundo_token, cuarto_token])
-                    elif type(resultado) == str and self.tabla_simbolos[primer_operando]["TIPO"] != "STRING":
-                        raise exc.SemanticoTokensIncompatibles(tokens=[primer_token, segundo_token, cuarto_token])
-
-                except Exception as e:
+                if type(resultado) == int and self.tabla_simbolos[primer_token.lexem]["TIPO"] == "INT":
+                    self.tabla_simbolos[primer_token.lexem]["VALOR"] = str(resultado)
+                elif type(resultado) == str and self.tabla_simbolos[primer_token.lexem]["TIPO"] == "STRING":
+                    self.tabla_simbolos[primer_token.lexem]["VALOR"] = str(resultado)
+                elif type(resultado) == int and self.tabla_simbolos[primer_token.lexem]["TIPO"] != "INT":
+                    raise exc.SemanticoTokensIncompatibles(tokens=[primer_token, segundo_token, cuarto_token])
+                elif type(resultado) == str and self.tabla_simbolos[primer_operando]["TIPO"] != "STRING":
                     raise exc.SemanticoTokensIncompatibles(tokens=[primer_token, segundo_token, cuarto_token])
 
+            except Exception as e:
+                raise exc.SemanticoTokensIncompatibles(tokens=[primer_token, segundo_token, cuarto_token])
+
             self.get_next_token()
-            self.E(perform=perform)
+            self.E()
 
         elif self.predict(["ESTRUCTURA"]):
             cuarto_token = self.token_actual
@@ -597,26 +611,23 @@ class analizador:
 
             operacion = tercer_token.lexem
 
-            if perform:
-                try:
-                    print(f"{primer_operando}{operacion}{segundo_operando}")
-                    resultado = eval(f"{primer_operando}{operacion}{segundo_operando}")
-                    print(f"{resultado}  {type(resultado)}")
+            try:
+                resultado = eval(f"{primer_operando}{operacion}{segundo_operando}")
 
-                    if type(resultado) == int and self.tabla_simbolos[primer_token.lexem]["TIPO"] == "INT":
-                        self.tabla_simbolos[primer_token.lexem]["VALOR"] = str(resultado)
-                    elif type(resultado) == str and self.tabla_simbolos[primer_token.lexem]["TIPO"] == "STRING":
-                        self.tabla_simbolos[primer_token.lexem]["VALOR"] = str(resultado)
-                    elif type(resultado) == int and self.tabla_simbolos[primer_token.lexem]["TIPO"] != "INT":
-                        raise exc.SemanticoTokensIncompatibles(tokens=[primer_token, segundo_token, cuarto_token])
-                    elif type(resultado) == str and self.tabla_simbolos[primer_operando]["TIPO"] != "STRING":
-                        raise exc.SemanticoTokensIncompatibles(tokens=[primer_token, segundo_token, cuarto_token])
-
-                except Exception as e:
+                if type(resultado) == int and self.tabla_simbolos[primer_token.lexem]["TIPO"] == "INT":
+                    self.tabla_simbolos[primer_token.lexem]["VALOR"] = str(resultado)
+                elif type(resultado) == str and self.tabla_simbolos[primer_token.lexem]["TIPO"] == "STRING":
+                    self.tabla_simbolos[primer_token.lexem]["VALOR"] = str(resultado)
+                elif type(resultado) == int and self.tabla_simbolos[primer_token.lexem]["TIPO"] != "INT":
+                    raise exc.SemanticoTokensIncompatibles(tokens=[primer_token, segundo_token, cuarto_token])
+                elif type(resultado) == str and self.tabla_simbolos[primer_operando]["TIPO"] != "STRING":
                     raise exc.SemanticoTokensIncompatibles(tokens=[primer_token, segundo_token, cuarto_token])
 
+            except Exception as e:
+                raise exc.SemanticoTokensIncompatibles(tokens=[primer_token, segundo_token, cuarto_token])
+
             self.get_next_token()
-            self.E(perform=perform)
+            self.E()
         
         else:
             raise exc.SemanticoTokenIncorrecto(token_actual=self.token_actual, tokens=["INT", "CHAR", "STRING", "NULL", "IDENTIFICADOR", "ESTRUCTURA"])
@@ -625,9 +636,12 @@ class analizador:
         self.match(["PAR_A"])
 
         self.get_next_token()
-        self.match(["IDENTIFICADOR"])
+        self.R()
 
-        variable_donde_guardar = self.token_actual.lexem
+        variable = self.token_actual
+
+        if not self.existe_en_tabla_simbolos(identificador=variable.lexem):
+            raise exc.SemanticoSimboloNoDeclarado(token=variable)
 
         self.get_next_token()
         self.match(["PAR_C"])
@@ -635,10 +649,28 @@ class analizador:
         self.get_next_token()
         self.match(["PUNTO_COMA"])
 
-        print(f"READ : ({variable_donde_guardar})")
+        entrada = input()
+
+        try:
+            numero = int(entrada)
+            
+            if self.tabla_simbolos[variable.lexem]["TIPO"] == "INT" and isinstance(numero, int):
+                self.tabla_simbolos[variable.lexem]["VALOR"] = str(numero)
+            else:
+                raise exc.SemanticoValorPorTecladoIncorrecto(valor=entrada)
+        except ValueError:
+            if entrada.startswith('"') and entrada.endswith('"') and self.tabla_simbolos[variable.lexem]["TIPO"] == "STRING":
+               self.tabla_simbolos[variable.lexem]["VALOR"] = entrada
+            elif entrada.startswith("'") and entrada.endswith("'") and len(entrada) > 2 and len(entrada) <= 3 and self.tabla_simbolos[variable.lexem]["TIPO"] == "CHAR":
+                self.tabla_simbolos[variable.lexem]["VALOR"] = entrada 
+            else:
+                raise exc.SemanticoValorPorTecladoIncorrecto(valor=entrada)
 
         self.get_next_token()
         self.E()
+
+    def R(self):
+        self.match(["IDENTIFICADOR", "ESTRUCTURA"])
 
     def WRITE(self):
         self.match(["PAR_A"])
@@ -647,22 +679,41 @@ class analizador:
         tipo = self.M()
         dato = None
 
-        if tipo == "IDENTIFICADOR":
+        #if tipo == "IDENTIFICADOR":
+        #    if not self.existe_en_tabla_simbolos(identificador=self.token_actual.lexem):
+        #        raise exc.SemanticoSimboloNoDeclarado(token=self.token_actual)
+#
+        #    dato = self.tabla_simbolos[self.token_actual.lexem]["VALOR"] if self.token_actual.lexem != self.struct.nombre_estructura else self.estructura
+        #else:
+        #    dato = self.token_actual.lexem
+        
+        if tipo in ["INT", "CHAR", "STRING", "NULL"]:
+            dato = self.token_actual.lexem
+        elif tipo == "IDENTIFICADOR":
             if not self.existe_en_tabla_simbolos(identificador=self.token_actual.lexem):
                 raise exc.SemanticoSimboloNoDeclarado(token=self.token_actual)
 
-            dato = self.tabla_simbolos[self.token_actual.lexem]["VALOR"] if self.token_actual.lexem != self.struct.nombre_estructura else self.estructura
-        else:
-            dato = self.token_actual.lexem
-        
-        
+            if self.datos_estructura.nombre_estructura:
+                try:
+                    if self.tabla_simbolos[self.token_actual.lexem]["SIMBOLO"] == self.datos_estructura.nombre_estructura:
+                        campo_1 = self.tabla_simbolos[f"{self.token_actual.lexem}.{self.datos_estructura.nombre_campo}"]["VALOR"]
+                        campo_2 = self.tabla_simbolos[f"{self.token_actual.lexem}.{self.datos_estructura.nombre_apuntador}"]["VALOR"]
+
+                        dato = f"{self.token_actual.lexem}: ({self.datos_estructura.nombre_campo} = {campo_1} ; {self.datos_estructura.nombre_apuntador} = {campo_2})"
+                except:
+                    pass
+            else:
+                dato = f"{self.token_actual.lexem}: {self.tabla_simbolos[self.token_actual.lexem]['VALOR']}"
+        elif tipo == "ESTRUCTURA":
+            dato = f"{self.token_actual.lexem}: {self.tabla_simbolos[self.token_actual.lexem]['VALOR']}"
+
         self.get_next_token()
         self.match(["PAR_C"])
 
         self.get_next_token()
         self.match(["PUNTO_COMA"])
 
-        print(f"write : ({tipo} {dato})")
+        print(dato)
 
         self.get_next_token()
         self.E()
@@ -672,7 +723,6 @@ class analizador:
 
         self.get_next_token()
         res = self.CON()
-        print(res)
 
         self.get_next_token()
         self.match(["PAR_C"])
@@ -681,30 +731,31 @@ class analizador:
         self.match(["THEN"])
 
         self.get_next_token()
-        self.E(perform=res)
+        self.E()
 
-        self.IF_P()
+        self.IF_P(res=res)
 
         self.match(["END"])
 
         self.get_next_token()
         self.E()
 
-    def IF_P(self):
+    def IF_P(self, res : bool):
         if self.predict(["ELSE"]):
             self.get_next_token()
-            self.E()
-        
+            self.E(perform = not res)
+
         elif self.predict(["END"]):
             return 
     
     def WHILE(self):
+
         self.match(["PAR_A"])
-
+        
         self.get_next_token()
+        
         res = self.CON()
-        print(res)
-
+        
         self.get_next_token()
         self.match(["PAR_C"])
 
@@ -712,9 +763,12 @@ class analizador:
         self.match(["DO"])
 
         self.get_next_token()
+
         self.E()
 
         self.match(["END"])
+
+        self.lexic.posicion = self.posicion_while[-1] if res else self.lexic.posicion
 
         self.get_next_token()
         self.E()
@@ -776,7 +830,6 @@ class analizador:
                 elif operacion == "DISTINTO":
                     return valor_operando_1 != valor_operando_2
             except ValueError:
-                print(self.token_actual)
                 raise exc.SemanticoTokensIncompatibles(tokens=[t_1, t_2])
 
     def VALOR(self) -> str:            
