@@ -483,7 +483,7 @@ class analizador:
         self.tabla_simbolos[f"{token_izquierdo.lexem}.{self.datos_estructura.nombre_apuntador}"]["VALOR"] = self.tabla_simbolos[f"{token_derecho.lexem}.{self.datos_estructura.nombre_apuntador}"]["VALOR"]
         
     def E_II(self, primer_token : Token, segundo_token : Token, perform : bool):
-        if self.predict(["SUMA", "RESTA", "DIV", "MULTI"]):
+        if self.predict(["SUMA", "RESTA", "DIV", "MULTI", "MOD"]):
             tercer_token = copy.deepcopy(self.token_actual)
 
             self.get_next_token()
@@ -533,7 +533,7 @@ class analizador:
                 primer_operando = None if self.tabla_simbolos[segundo_token.lexem]["VALOR"] == "NULL" else self.tabla_simbolos[segundo_token.lexem]["VALOR"]
             
 
-            operacion = tercer_token.lexem
+            operacion = "%" if tercer_token.lexem == "MOD" else tercer_token.lexem
             segundo_operando = None if cuarto_token.lexem == "NULL" else cuarto_token.lexem
             if perform:
                 try:
@@ -576,7 +576,7 @@ class analizador:
             else:
                 segundo_operando = None if self.tabla_simbolos[cuarto_token.lexem]["VALOR"] == "NULL" else self.tabla_simbolos[cuarto_token.lexem]["VALOR"]
 
-            operacion = tercer_token.lexem
+            operacion = "%" if tercer_token.lexem == "MOD" else tercer_token.lexem
 
             if perform:
                 try:
@@ -619,7 +619,7 @@ class analizador:
             else:
                 segundo_operando = None if self.tabla_simbolos[cuarto_token.lexem]["VALOR"] == "NULL" else self.tabla_simbolos[cuarto_token.lexem]["VALOR"]
 
-            operacion = tercer_token.lexem
+            operacion = "%" if tercer_token.lexem == "MOD" else tercer_token.lexem
 
             if perform:
                 try:
