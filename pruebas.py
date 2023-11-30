@@ -20,33 +20,23 @@ def main():
     analizer.S()
 
     tabla_simbolos = analizer.tabla_simbolos
-    tabla_variables = analizer.tabla_variables
-    tabla_constantes = analizer.tabla_constantes
 
-    tabla_1 = PrettyTable(["token", "tipo"])
-    tabla_2 = PrettyTable(["id", "valor"])
-    tabla_3 = PrettyTable(["id", "valor"])
+    tabla_1 = PrettyTable(["token", "tipo"], border=True)
 
     for campo, valor in tabla_simbolos.items():
         tabla_1.add_row([campo, valor])
 
-    for campo, valor in tabla_variables.items():
-        tabla_2.add_row([campo, valor])
-    
-    for campo, valor in tabla_constantes.items():
-        tabla_3.add_row([campo, valor])
 
     print("simbolos:")
     print(tabla_1)
-    
-    print("variables:")
-    print(tabla_2)
 
-    print("constantes:")
-    print(tabla_3)
+    
+
+    #print(analizer.struct)
 
     end_time = time.time()  
     elapsed_time = end_time - start_time  # Calcular el tiempo transcurrido
+
 
     print(f"Tiempo de ejecución: {elapsed_time} segundos")
         
