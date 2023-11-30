@@ -720,11 +720,16 @@ class analizador:
         self.E()
     
     def CON(self) -> bool:
-        if self.predict(["INT", "CHAR", "STRING", "NULL", "IDENTIFICADOR"]):
+        if self.predict(["INT", "CHAR", "STRING", "NULL", "IDENTIFICADOR", "ESTRUCTURA"]):
             tipo_operando_1 = self.M()
+
+            t_1 = copy.deepcopy(self.token_actual)
+
             if tipo_operando_1 == "IDENTIFICADOR" and (not self.existe_en_tabla_simbolos(identificador=self.token_actual.lexem)):
-                raise Exception
-            valor_operando_1 = self.tabla_simbolos[self.token_actual.lexem]["VALOR"] if tipo_operando_1 == "IDENTIFICADOR" else self.token_actual.lexem
+                raise exc.SemanticoSimboloNoDeclarado(token=self.token_actual)
+            elif tipo_operando_1 == "ESTRUCTURA" and (not self.existe_en_tabla_simbolos(identificador=self.token_actual.lexem)):
+                raise exc.SemanticoSimboloNoDeclarado(token=self.token_actual)
+            valor_operando_1 = self.tabla_simbolos[self.token_actual.lexem]["VALOR"] if tipo_operando_1 == "IDENTIFICADOR" or tipo_operando_1 == "ESTRUCTURA" else self.token_actual.lexem
 
             self.get_next_token()
             operacion = self.OPCO()
@@ -732,9 +737,14 @@ class analizador:
             self.get_next_token()
             tipo_operando_2 = self.M()
             if tipo_operando_2 == "IDENTIFICADOR" and (not self.existe_en_tabla_simbolos(identificador=self.token_actual.lexem)):
-                raise Exception
-            valor_operando_2 = self.tabla_simbolos[self.token_actual.lexem]["VALOR"] if tipo_operando_2 == "IDENTIFICADOR" else self.token_actual.lexem
+                raise exc.SemanticoSimboloNoDeclarado(token=self.token_actual)
+            elif tipo_operando_2 == "ESTRUCTURA" and (not self.existe_en_tabla_simbolos(identificador=self.token_actual.lexem)):
+                raise exc.SemanticoSimboloNoDeclarado(token=self.token_actual)
             
+            valor_operando_2 = self.tabla_simbolos[self.token_actual.lexem]["VALOR"] if tipo_operando_2 == "IDENTIFICADOR" or tipo_operando_2 == "ESTRUCTURA"  else self.token_actual.lexem
+
+            t_2 = copy.deepcopy(self.token_actual)
+
             try:
                 if operacion == "MENOR":
                     valor_operando_1 = int(valor_operando_1)
@@ -767,7 +777,7 @@ class analizador:
                     return valor_operando_1 != valor_operando_2
             except ValueError:
                 print(self.token_actual)
-                raise Exception
+                raise exc.SemanticoTokensIncompatibles(tokens=[t_1, t_2])
 
     def VALOR(self) -> str:            
         self.match(["INT", "CHAR", "STRING", "NULL"])
