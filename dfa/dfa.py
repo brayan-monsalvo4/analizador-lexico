@@ -9,11 +9,12 @@ class Dfa:
 
     def __init__(self):
         self._total_caracteres : int = 0
+        self.posicion : int = 0
         self.reiniciar()
         pass
 
     def get_posicion_actual(self) -> tuple[int, int]:
-        return (self.__fila, self.__columna)
+        return (self.fila, self.columna)
 
     def siguiente_estado(self, estado_actual: str, simbolo: str) -> str:
         #print(f"siguiente estado: estado_actual:{estado_actual}, simbolo:{simbolo}")
@@ -77,14 +78,14 @@ class Dfa:
         self.retrocesos : dict[str, int] = tabla.retrocesos
         self.__palabras_reservadas : set[str] = tabla.palabras_reservadas
 
-        self.__fila : int = 1
-        self.__columna : int = 0
-        self.__posicion : int = 0
+        self.fila : int = 1
+        self.columna : int = 0
+        self.posicion : int = 0
     
     def reiniciar(self):
-        self.__posicion = 0
-        self.__fila = 1
-        self.__columna = 1
+        self.posicion = 0
+        self.fila = 1
+        self.columna = 1
 
     def cargar_archivo_fuente(self, path : str):
         self.__archivo_fuente : str = path
@@ -104,34 +105,34 @@ class Dfa:
         buffer : str = ""
         with open(self.__archivo_fuente, "r") as file:
             estado : str = self.estado_inicial
-            file.seek(self.__posicion)
+            file.seek(self.posicion)
 
             fin_archivo : bool = False
 
             while char := file.read(1):
-                self.__posicion = file.tell()
-                self.__columna += 1
+                self.posicion = file.tell()
+                self.columna += 1
 
                 buffer += char
                 estado = self.siguiente_estado(estado_actual=estado, simbolo=char)
 
-                if self._total_caracteres == self.__posicion:
+                if self._total_caracteres == self.posicion:
                     fin_archivo = True
                 
                 if not estado:
-                    raise exceptions.LexicoTokenIncorrecto((str(self.__fila), str(self.__columna)), actual=buffer)
+                    raise exceptions.LexicoTokenIncorrecto((str(self.fila), str(self.columna)), actual=buffer)
                 
                 if estado in self.estados_finales:
                     buffer = buffer[: -(self.retrocesos.get(estado)) ] if self.retrocesos.get(estado) else buffer
 
-                    self.__posicion -= self.retrocesos.get(estado, 0)# if not fin_archivo else 0
-                    self.__columna -= self.retrocesos.get(estado, 0)# if not fin_archivo else 0
+                    self.posicion -= self.retrocesos.get(estado, 0)# if not fin_archivo else 0
+                    self.columna -= self.retrocesos.get(estado, 0)# if not fin_archivo else 0
 
                     if buffer in self.__palabras_reservadas:
                         tokencito = token.Token(
                             type=buffer,
                             lexem=buffer,
-                            coordinates=(self.__fila, self.__columna)
+                            coordinates=(self.fila, self.columna)
                         )
 
                         return tokencito
@@ -139,12 +140,12 @@ class Dfa:
                     tokencito = token.Token(
                         type=self.tokens.get(estado),
                         lexem=buffer,
-                        coordinates=(self.__fila, self.__columna)
+                        coordinates=(self.fila, self.columna)
                     )
 
                     if tokencito.lexem == "\n":
-                        self.__columna = 1
-                        self.__fila += 1
+                        self.columna = 1
+                        self.fila += 1
 
                     return tokencito
 
