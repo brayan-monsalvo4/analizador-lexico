@@ -346,8 +346,6 @@ class analizador:
             raise Exception
 
     def E(self, perform : bool = True):
-        if not perform:
-            return 
         
         if self.predict(["IDENTIFICADOR"]):
             primer_token = copy.deepcopy(self.token_actual)
@@ -393,7 +391,10 @@ class analizador:
         elif self.predict(["END", "ELSE"]):
             return 
         else:
-            raise exc.SemanticoTokenIncorrecto(tokens=["IDENTIFICADOR", "ESTRUCTURA", "END","ELSE"], token_actual=self.token_actual)
+            if perform:
+                raise exc.SemanticoTokenIncorrecto(tokens=["IDENTIFICADOR", "ESTRUCTURA", "END","ELSE"], token_actual=self.token_actual)
+            else:
+                self.get_next_token()
 
     def E_I(self, primer_token : Token):
         if self.predict(["INT", "CHAR", "STRING", "NULL"]):
@@ -497,7 +498,7 @@ class analizador:
                 self.validar_casos(token_izquierdo=primer_token, token_derecho=segundo_token)
             elif self.tabla_simbolos[primer_token.lexem]["SIMBOLO"] == "CONST":
                 raise exc.SemanticoSobreescribirConstante(constante=primer_token)
-            
+
             self.get_next_token()
             self.E()
 
@@ -731,7 +732,7 @@ class analizador:
         self.match(["THEN"])
 
         self.get_next_token()
-        self.E()
+        self.E(perform=res)
 
         self.IF_P(res=res)
 
