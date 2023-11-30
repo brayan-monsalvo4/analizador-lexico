@@ -40,5 +40,49 @@ class SemanticoProgramaIncorrecto(Exception):
 
 class SemanticoSimboloNoDeclarado(Exception):
     def __init__(self, token : Token):
-        self.message = f"Error semantico: {token} no declarado."
+        self.message = f"Error semantico: {token} no declarado, en {token.initial_coordinates} y {token.final_coordinates}."
+        super().__init__(self.message)
+
+class SemanticoTokensIncompatibles(Exception):
+    def __init__(self, tokens : list[Token]):
+        primero = tokens[0]
+        ultimo = tokens[-1]
+        self.message = f"Error semantico: {[token.lexem for token in tokens]} incompatibles, entre {primero.initial_coordinates} y {ultimo.final_coordinates}. "
+        super().__init__(self.message)
+
+class SemanticoSobreescribirConstante(Exception):
+    def __init__(self, constante: Token):
+        self.message = f"Error semantico: No se pueden sobreescribir constantes. Constante {constante.lexem}, en {constante.initial_coordinates} y {constante.final_coordinates} "
+        super().__init__(self.message)
+
+
+class SemanticoEstructuraIncorrecta(Exception):
+    def __init__(self, estructura: Token):
+        self.message = f"Error semantico: la estructura no posee un campo apuntador, en {estructura.initial_coordinates} y {estructura.final_coordinates}"
+        super().__init__(self.message)
+
+class SemanticoEstructuraApuntadorIncorrecto(Exception):
+    def __init__(self, apuntador : Token):
+        self.message = f"Error semantico: {apuntador.lexem} no es una estructura a la que apuntar, en {apuntador.initial_coordinates} y {apuntador.final_coordinates}"
+        super().__init__(self.message)
+
+class SemanticoSimboloYaExistente(Exception):
+    def __init__(self, token : Token):
+        self.message = f"Error semantico: {token.lexem} ya se encuentra declarado. En {token.initial_coordinates} y {token.final_coordinates}"  
+        super().__init__(self.message)
+
+class SemanticoEstructuraCamposIguales(Exception):
+    def __init__(self, token : Token):
+        self.message = f"Error semantico: Ambos campos se llaman igual. En {token.initial_coordinates} y {token.final_coordinates}"  
+        super().__init__(self.message)
+
+
+class SemanticoExpresionInvalida(Exception):
+    def __init__(self, lista_valores : list[str], token : Token):
+        self.message = f"Error semantico: la operacion entre {lista_valores} no esta definida para {token.lexem}, en {token.initial_coordinates} y {token.final_coordinates}."  
+        super().__init__(self.message)
+
+class SemanticoPunteroNulo(Exception):
+    def __init__(self, token : Token):
+        self.message = f"Error semantico: el puntero es nulo.{token.lexem}, en {token.initial_coordinates} y {token.final_coordinates}."  
         super().__init__(self.message)
